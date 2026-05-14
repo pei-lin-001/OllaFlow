@@ -19,6 +19,15 @@ services:
       - LOG_RETENTION_DAYS=${LOG_RETENTION_DAYS:-30}
       - SAVE_REQUEST_BODIES=${SAVE_REQUEST_BODIES:-false}
       - SAVE_RESPONSE_BODIES=${SAVE_RESPONSE_BODIES:-false}
+    networks:
+      -ollaflow-net
+
+networks:
+  ollaflow-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/16
 
 volumes:
-  ollaflow-data:
+ ollaflow-data:
