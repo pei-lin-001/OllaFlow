@@ -315,4 +315,80 @@ router.post('/cleanup', async (_req, res) => {
   res.json({ deleted: deleted.count, cutoff });
 });
 
+// ── Change Password ───────────────────────────────────
+
+router.patch('/password', async (req, res) => {
+  const schema = z.object({
+    oldPassword: z.string().min(1),
+    newPassword: z.string().min(6),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.format() });
+
+  const { oldPassword, newPassword } = parsed.data;
+  const adminId = (req as any).adminUser.adminId;
+
+  const admin = await prisma.adminUser.findUnique({ where: { id: adminId } });
+  if (!admin) return res.status(404).json({ error: '用户不存在' });
+
+  if (!(await bcrypt.compare(oldPassword, admin.password))) {
+    return res.status(400).json({ error: '当前密码错误' });
+  }
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await prisma.adminUser.update({ where: { id: adminId }, data: { password: hash } });
+
+  res.json({ message: '密码修改成功' });
+});
+
+// ── Admin Users ───────────────────────────────────────
+
+router.get('/admins', async (_req, res) => {
+  const admins = await prisma.adminUser.findMany({
+    orderBy: { id: 'asc' },
+    select: { id: true, username: true, createdAt: true },
+  });
+  res.json(admins);
+});
+
+router.post('/admins', async (req, res) => {
+  const schema = z.object({
+    username: z.string().min(2).max(50),
+    password: z.string().min(6),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.format() });
+
+  const { username, password } = parsed.data;
+
+  const existing = await prisma.adminUser.findUnique({ where: { username } });
+  if (existing) return res.status(409).json({ error: '用户名已存在' });
+
+  const hash = await bcrypt.hash(password, 10);
+  const admin = await prisma.adminUser.create({
+    data: { username, password: hash },
+  });
+
+  res.status(201).json({ id: admin.id, username: admin.username });
+});
+
+router.delete('/admins/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const currentAdminId = (req as any).adminUser.adminId;
+
+  if (id === currentAdminId) {
+    return res.status(400).json({ error: '不能删除当前登录的管理员' });
+  }
+
+  try {
+    await prisma.adminUser.delete({ where: { id } });
+    res.status(204).send();
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ error: '用户不存在' });
+    throw err;
+  }
+});
+
 export default router;

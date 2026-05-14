@@ -69,4 +69,16 @@ export const api = {
   },
 
   cleanup: () => fetcher('/cleanup', { method: 'POST' }),
+
+  changePassword: (oldPassword: string, newPassword: string) =>
+    fetcher('/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ oldPassword, newPassword }),
+    }),
+
+  getAdmins: () => fetcher('/admins'),
+  createAdmin: (data: { username: string; password: string }) =>
+    fetcher('/admins', { method: 'POST', body: JSON.stringify(data) }),
+  deleteAdmin: (id: number) =>
+    fetcher(`/admins/${id}`, { method: 'DELETE' }),
 }
