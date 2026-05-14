@@ -26,17 +26,16 @@ model ProxyUser {
 }
 
 model Account {
-  id           Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   name         String
   apiKey       String
   proxyUrl     String?
   proxyAuth    String?
-  isActive     Boolean   @default(true)
-  weight       Int       @default(1)
-  failCount    Int       @default(0)
-  disabledAt   DateTime?
+  isActive     Boolean  @default(true)
+  weight       Int      @default(1)
+  failCount    Int      @default(0)
   lastUsedAt   DateTime?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime @default(now())
   usageRecords UsageRecord[]
   requestLogs  RequestLog[]
 }

@@ -6,7 +6,6 @@ import { prisma } from '../db.js';
 import { config } from '../config.js';
 import { encrypt, decrypt } from '../crypto.js';
 import { adminAuthMiddleware } from '../middleware/adminAuth.js';
-import { reactivateAccount, getCooldownMs } from '../services/accountSelector.js';
 
 const router = Router();
 
@@ -67,13 +66,6 @@ router.get('/dashboard', async (_req, res) => {
   });
 });
 
-router.get('/circuit-breaker-config', (_req, res) => {
-  res.json({
-    threshold: config.CIRCUIT_BREAKER_THRESHOLD,
-    cooldownSeconds: config.CIRCUIT_BREAKER_COOLDOWN,
-  });
-});
-
 // ── Accounts ─────────────────────────────────────────
 
 router.get('/accounts', async (_req, res) => {
@@ -86,7 +78,6 @@ router.get('/accounts', async (_req, res) => {
       isActive: a.isActive,
       weight: a.weight,
       failCount: a.failCount,
-      disabledAt: a.disabledAt,
       lastUsedAt: a.lastUsedAt,
       createdAt: a.createdAt,
     }))
@@ -165,25 +156,13 @@ router.post('/accounts/:id/test', async (req, res) => {
     const resp = await forwardToOllama(account, 'GET', '/api/tags', {});
     const chunks: Buffer[] = [];
     resp.body.on('data', (c: Buffer) => chunks.push(c));
-    resp.body.on('end', async () => {
+    resp.body.on('end', () => {
       const body = Buffer.concat(chunks).toString('utf8');
-      if (resp.statusCode === 200) {
-        await reactivateAccount(id);
-      }
       res.json({ success: resp.statusCode === 200, statusCode: resp.statusCode, body: body.slice(0, 500) });
     });
   } catch (err: any) {
     res.status(502).json({ success: false, error: err.message });
   }
-});
-
-router.post('/accounts/:id/reactivate', async (req, res) => {
-  const id = Number(req.params.id);
-  const account = await prisma.account.findUnique({ where: { id } });
-  if (!account) return res.status(404).json({ error: 'Account not found' });
-
-  await reactivateAccount(id);
-  res.json({ success: true });
 });
 
 // ── Proxy Users ──────────────────────────────────────

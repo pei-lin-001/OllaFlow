@@ -12,8 +12,6 @@ const configSchema = z.object({
   OLLAMA_CLOUD_HOST: z.string().url().default('https://ollama.com'),
   ADMIN_USERNAME: z.string().default('admin'),
   ADMIN_PASSWORD: z.string().default('admin'),
-  CIRCUIT_BREAKER_THRESHOLD: z.string().default('3').transform(Number),
-  CIRCUIT_BREAKER_COOLDOWN: z.string().default('300').transform(Number),
   LOG_RETENTION_DAYS: z.string().default('30').transform(Number),
   SAVE_REQUEST_BODIES: z.string().default('false').transform(v => v === 'true'),
   SAVE_RESPONSE_BODIES: z.string().default('false').transform(v => v === 'true'),

@@ -1,6 +1,5 @@
 import { prisma } from '../db.js';
 import { decrypt } from '../crypto.js';
-import { config } from '../config.js';
 import type { Account } from '@prisma/client';
 
 const roundRobinIndex = new Map<string, number>();
@@ -9,39 +8,18 @@ function getStrategyKey(endpoint: string): string {
   return 'global';
 }
 
-export function getCooldownMs(): number {
-  return config.CIRCUIT_BREAKER_COOLDOWN * 1000;
-}
-
-export function getThreshold(): number {
-  return config.CIRCUIT_BREAKER_THRESHOLD;
-}
-
 export async function selectAccount(endpoint: string): Promise<Account | null> {
-  const cooldownThreshold = new Date(Date.now() - getCooldownMs());
-
   const accounts = await prisma.account.findMany({
-    where: {
-      OR: [
-        { isActive: true },
-        {
-          isActive: false,
-          disabledAt: { not: null, lt: cooldownThreshold },
-        },
-      ],
-    },
+    where: { isActive: true },
     orderBy: { id: 'asc' },
   });
 
   if (accounts.length === 0) return null;
 
-  const activeAccounts = accounts.filter((a) => a.isActive);
-  const pool = activeAccounts.length > 0 ? activeAccounts : accounts;
-
   const key = getStrategyKey(endpoint);
   const idx = roundRobinIndex.get(key) ?? 0;
-  const account = pool[idx % pool.length];
-  roundRobinIndex.set(key, (idx + 1) % pool.length);
+  const account = accounts[idx % accounts.length];
+  roundRobinIndex.set(key, (idx + 1) % accounts.length);
 
   return account;
 }
@@ -49,12 +27,7 @@ export async function selectAccount(endpoint: string): Promise<Account | null> {
 export async function markAccountSuccess(accountId: number) {
   await prisma.account.update({
     where: { id: accountId },
-    data: {
-      failCount: 0,
-      isActive: true,
-      disabledAt: null,
-      lastUsedAt: new Date(),
-    },
+    data: { failCount: 0, lastUsedAt: new Date() },
   });
 }
 
@@ -64,19 +37,12 @@ export async function markAccountFailure(accountId: number) {
     data: { failCount: { increment: 1 }, lastUsedAt: new Date() },
   });
 
-  if (account.failCount >= config.CIRCUIT_BREAKER_THRESHOLD) {
+  if (account.failCount >= 3) {
     await prisma.account.update({
       where: { id: accountId },
-      data: { isActive: false, disabledAt: new Date() },
+      data: { isActive: false },
     });
   }
-}
-
-export async function reactivateAccount(accountId: number) {
-  await prisma.account.update({
-    where: { id: accountId },
-    data: { isActive: true, failCount: 0, disabledAt: null },
-  });
 }
 
 export function getDecryptedApiKey(account: Account): string {
