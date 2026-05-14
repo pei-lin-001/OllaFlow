@@ -45,6 +45,8 @@ export const api = {
     fetcher(`/accounts/${id}`, { method: 'DELETE' }),
   testAccount: (id: number) =>
     fetcher(`/accounts/${id}/test`, { method: 'POST' }),
+  reactivateAccount: (id: number) =>
+    fetcher(`/accounts/${id}/reactivate`, { method: 'POST' }),
 
   getProxyUsers: () => fetcher('/proxy-users'),
   createProxyUser: (data: any) =>
@@ -79,6 +81,8 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ oldPassword, newPassword }),
     }),
+
+  getCircuitBreakerConfig: () => fetcher('/circuit-breaker-config'),
 
   getAdmins: () => fetcher('/admins'),
   createAdmin: (data: { username: string; password: string }) =>
