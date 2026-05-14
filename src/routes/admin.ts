@@ -327,14 +327,16 @@ router.get('/usage/by-model', async (req, res) => {
     // 2. Fallback: evalCount / ((totalDuration_ns / 1e9)) if available
     // Only count if we have evalCount > 0 and a valid duration
     if (r.evalCount && r.evalCount > 0) {
-      if (r.evalDuration && r.evalDuration > 0) {
+      if (r.evalDuration && r.evalDuration > 0n) {
         // Ollama native: precise TPS from eval_duration
-        const tps = r.evalCount / (r.evalDuration / 1e9);
+        const evalDurationNs = Number(r.evalDuration);
+        const tps = r.evalCount / (evalDurationNs / 1e9);
         entry.totalTpsWeighted += tps * r.evalCount; // weighted by token count
         entry.tpsCount += r.evalCount;
-      } else if (r.totalDuration && r.totalDuration > 0) {
+      } else if (r.totalDuration && r.totalDuration > 0n) {
         // Fallback: use total_duration (includes load + prompt eval)
-        const tps = r.evalCount / (r.totalDuration / 1e9);
+        const totalDurationNs = Number(r.totalDuration);
+        const tps = r.evalCount / (totalDurationNs / 1e9);
         entry.totalTpsWeighted += tps * r.evalCount;
         entry.tpsCount += r.evalCount;
       }

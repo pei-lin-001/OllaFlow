@@ -51,10 +51,10 @@ model UsageRecord {
   endpoint           String
   promptEvalCount    Int?
   evalCount          Int?
-  totalDuration      Int?
-  loadDuration       Int?
-  promptEvalDuration Int?
-  evalDuration       Int?
+  totalDuration      BigInt?
+  loadDuration       BigInt?
+  promptEvalDuration BigInt?
+  evalDuration       BigInt?
   statusCode         Int
   errorMessage       String?
   streamed           Boolean   @default(false)
