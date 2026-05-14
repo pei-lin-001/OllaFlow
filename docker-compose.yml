@@ -1,0 +1,21 @@
+services:
+  ollaflow:
+    build: .
+    container_name: ollaflow
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ollaflow-data:/app/prisma/data
+    environment:
+      - ENCRYPTION_KEY=change_me_at_least_32_chars_long!!
+      - JWT_SECRET=change_me_at_least_16_chars!
+      - OLLAMA_CLOUD_HOST=https://ollama.com
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin
+      - DATABASE_URL=file:/app/prisma/data/app.db
+      - PORT=3000
+      - NODE_ENV=production
+
+volumes:
+  ollaflow-data:

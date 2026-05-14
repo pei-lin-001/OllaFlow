@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String   // bcrypt hash
+  createdAt DateTime @default(now())
+}
+
+model ProxyUser {
+  id           Int      @id @default(autoincrement())
+  name         String
+  apiKey       String   @unique
+  isActive     Boolean  @default(true)
+  rateLimit    Int?
+  createdAt    DateTime @default(now())
+  usageRecords UsageRecord[]
+  requestLogs  RequestLog[]
+}
+
+model Account {
+  id           Int      @id @default(autoincrement())
+  name         String
+  apiKey       String
+  proxyUrl     String?
+  proxyAuth    String?
+  isActive     Boolean  @default(true)
+  weight       Int      @default(1)
+  failCount    Int      @default(0)
+  lastUsedAt   DateTime?
+  createdAt    DateTime @default(now())
+  usageRecords UsageRecord[]
+  requestLogs  RequestLog[]
+}
+
+model UsageRecord {
+  id                 Int       @id @default(autoincrement())
+  accountId          Int
+  account            Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  proxyUserId        Int?
+  proxyUser          ProxyUser? @relation(fields: [proxyUserId], references: [id], onDelete: SetNull)
+  model              String
+  endpoint           String
+  promptEvalCount    Int?
+  evalCount          Int?
+  totalDuration      Int?
+  loadDuration       Int?
+  promptEvalDuration Int?
+  evalDuration       Int?
+  statusCode         Int
+  errorMessage       String?
+  streamed           Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([proxyUserId, createdAt])
+  @@index([model, createdAt])
+}
+
+model UsageAggregate {
+  id               Int      @id @default(autoincrement())
+  accountId        Int?
+  proxyUserId      Int?
+  model            String
+  period           String   // "day" | "hour"
+  periodStart      DateTime
+  requestCount     Int      @default(0)
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  totalDuration    BigInt   @default(0)
+  errorCount       Int      @default(0)
+
+  @@unique([accountId, proxyUserId, model, period, periodStart])
+  @@index([periodStart])
+}
+
+model RequestLog {
+  id           Int      @id @default(autoincrement())
+  accountId    Int?
+  account      Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  proxyUserId  Int?
+  proxyUser    ProxyUser? @relation(fields: [proxyUserId], references: [id], onDelete: SetNull)
+  model        String?
+  endpoint     String
+  method       String
+  statusCode   Int?
+  requestBody  String?
+  responseBody String?
+  error        String?
+  durationMs   Int
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([accountId, createdAt])
+  @@index([proxyUserId, createdAt])
+}

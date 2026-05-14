@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+*.tsbuildinfo
+
+# Data & Database
+data/
+prisma/data/
+*.db
+*.db-journal
+
+# Env (contains secrets!)
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+server.log
+vite.log
+
+# Docker
+docker-compose.override.yml
+
+# Playwright
+.playwright-cli/
+
+# Misc
+test-db.mjs
+PLAN.md
+DESIGN.md
