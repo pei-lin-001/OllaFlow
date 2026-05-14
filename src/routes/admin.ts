@@ -129,8 +129,13 @@ router.patch('/accounts/:id', async (req, res) => {
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.weight !== undefined) updateData.weight = data.weight;
 
-  const account = await prisma.account.update({ where: { id }, data: updateData });
-  res.json({ id: account.id, name: account.name });
+  try {
+    const account = await prisma.account.update({ where: { id }, data: updateData });
+    res.json({ id: account.id, name: account.name });
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Account not found' });
+    throw err;
+  }
 });
 
 router.delete('/accounts/:id', async (req, res) => {
@@ -210,8 +215,13 @@ router.patch('/proxy-users/:id', async (req, res) => {
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.rateLimit !== undefined) updateData.rateLimit = data.rateLimit ?? null;
 
-  const user = await prisma.proxyUser.update({ where: { id }, data: updateData });
-  res.json(user);
+  try {
+    const user = await prisma.proxyUser.update({ where: { id }, data: updateData });
+    res.json(user);
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Proxy user not found' });
+    throw err;
+  }
 });
 
 router.delete('/proxy-users/:id', async (req, res) => {

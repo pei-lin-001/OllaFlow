@@ -25,23 +25,48 @@ export async function selectAccount(endpoint: string): Promise<Account | null> {
 }
 
 export async function markAccountSuccess(accountId: number) {
-  await prisma.account.update({
-    where: { id: accountId },
-    data: { failCount: 0, lastUsedAt: new Date() },
-  });
+  try {
+    await prisma.account.update({
+      where: { id: accountId },
+      data: { failCount: 0, lastUsedAt: new Date() },
+    });
+  } catch (err: any) {
+    if (err.code === 'P2025') {
+      // Account was deleted during request; silently ignore
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function markAccountFailure(accountId: number) {
-  const account = await prisma.account.update({
-    where: { id: accountId },
-    data: { failCount: { increment: 1 }, lastUsedAt: new Date() },
-  });
-
-  if (account.failCount >= 3) {
-    await prisma.account.update({
+  let account: Account | null = null;
+  try {
+    account = await prisma.account.update({
       where: { id: accountId },
-      data: { isActive: false },
+      data: { failCount: { increment: 1 }, lastUsedAt: new Date() },
     });
+  } catch (err: any) {
+    if (err.code === 'P2025') {
+      // Account was deleted during request; silently ignore
+      return;
+    }
+    throw err;
+  }
+
+  if (account && account.failCount >= 3) {
+    try {
+      await prisma.account.update({
+        where: { id: accountId },
+        data: { isActive: false },
+      });
+    } catch (err: any) {
+      if (err.code === 'P2025') {
+        // Account was deleted before we could disable it; silently ignore
+        return;
+      }
+      throw err;
+    }
   }
 }
 
