@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Activity, CreditCard, Users, Server, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,12 +32,21 @@ function StatCard({ title, value, icon: Icon, trend }: { title: string; value: s
   )
 }
 
+type PieMode = 'requests' | 'tokens'
+
 export default function Dashboard() {
+  const [pieMode, setPieMode] = useState<PieMode>('tokens')
+
   const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: api.getDashboard })
 
   const { data: aggData } = useQuery({
     queryKey: ['usage-aggregate', 'day'],
     queryFn: () => api.getUsageAggregate({ period: 'day' }),
+  })
+
+  const { data: byModelData } = useQuery({
+    queryKey: ['usage-by-model'],
+    queryFn: () => api.getUsageByModel(),
   })
 
   const chartData = (aggData || []).slice(-7).map((a: any) => ({
@@ -45,11 +55,15 @@ export default function Dashboard() {
     completion: a.completionTokens,
   }))
 
-  const modelDist = (aggData || []).reduce((acc: Record<string, number>, a: any) => {
-    acc[a.model] = (acc[a.model] || 0) + a.requestCount
-    return acc
-  }, {})
-  const pieData = Object.entries(modelDist).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5)
+  const pieData = (byModelData || [])
+    .map((m: any) => ({
+      name: m.model,
+      requests: m.requestCount,
+      tokens: m.totalTokens,
+      value: pieMode === 'tokens' ? m.totalTokens : m.requestCount,
+    }))
+    .sort((a: any, b: any) => b.value - a.value)
+    .slice(0, 6)
 
   if (isLoading) {
     return (
@@ -109,7 +123,23 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>模型分布</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>模型分布</CardTitle>
+              <div className="flex gap-1 text-xs">
+                <button
+                  className={`px-2 py-1 rounded ${pieMode === 'tokens' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
+                  onClick={() => setPieMode('tokens')}
+                >
+                  Token
+                </button>
+                <button
+                  className={`px-2 py-1 rounded ${pieMode === 'requests' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
+                  onClick={() => setPieMode('requests')}
+                >
+                  请求
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -121,6 +151,7 @@ export default function Dashboard() {
                 </Pie>
                 <Tooltip
                   contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                  formatter={(value: number, name: string) => [pieMode === 'tokens' ? formatTokens(value) : value.toLocaleString(), name]}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -129,6 +160,7 @@ export default function Dashboard() {
                 <div key={entry.name} className="flex items-center gap-1.5 text-xs">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                   <span className="text-muted-foreground">{entry.name}</span>
+                  <span className="font-medium">{pieMode === 'tokens' ? formatTokens(entry.tokens) : entry.requests.toLocaleString()}</span>
                 </div>
               ))}
             </div>

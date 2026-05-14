@@ -62,6 +62,10 @@ export const api = {
     const q = params ? '?' + new URLSearchParams(params).toString() : ''
     return fetcher(`/usage/aggregate${q}`)
   },
+  getUsageByModel: (params?: Record<string, string>) => {
+    const q = params ? '?' + new URLSearchParams(params).toString() : ''
+    return fetcher(`/usage/by-model${q}`)
+  },
 
   getLogs: (params?: Record<string, string>) => {
     const q = params ? '?' + new URLSearchParams(params).toString() : ''

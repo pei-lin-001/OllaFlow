@@ -272,6 +272,65 @@ router.get('/usage/aggregate', async (req, res) => {
   res.json(aggregates);
 });
 
+router.get('/usage/by-model', async (req, res) => {
+  const { from, to } = req.query;
+
+  const where: any = {};
+  if (from) where.createdAt = { ...where.createdAt, gte: new Date(String(from)) };
+  if (to) where.createdAt = { ...where.createdAt, lte: new Date(String(to)) };
+
+  const records = await prisma.usageRecord.findMany({ where });
+
+  // Join with RequestLog to get durationMs and ttffbMs for TPS calculation
+  // Group results by model
+  const models = new Map<string, { requestCount: number; promptTokens: number; completionTokens: number; totalTokens: number; totalTpsWeighted: number; tpsCount: number }>();
+
+  for (const r of records) {
+    const m = r.model || 'unknown';
+    const entry = models.get(m) || { requestCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, totalTpsWeighted: 0, tpsCount: 0 };
+    entry.requestCount += 1;
+    entry.promptTokens += r.promptEvalCount ?? 0;
+    entry.completionTokens += r.evalCount ?? 0;
+    entry.totalTokens += (r.promptEvalCount ?? 0) + (r.evalCount ?? 0);
+
+    // Calculate per-record TPS:
+    // 1. Ollama native: evalCount / (evalDuration_ns / 1e9)
+    // 2. Fallback: evalCount / ((totalDuration_ns / 1e9)) if available
+    // Only count if we have evalCount > 0 and a valid duration
+    if (r.evalCount && r.evalCount > 0) {
+      if (r.evalDuration && r.evalDuration > 0) {
+        // Ollama native: precise TPS from eval_duration
+        const tps = r.evalCount / (r.evalDuration / 1e9);
+        entry.totalTpsWeighted += tps * r.evalCount; // weighted by token count
+        entry.tpsCount += r.evalCount;
+      } else if (r.totalDuration && r.totalDuration > 0) {
+        // Fallback: use total_duration (includes load + prompt eval)
+        const tps = r.evalCount / (r.totalDuration / 1e9);
+        entry.totalTpsWeighted += tps * r.evalCount;
+        entry.tpsCount += r.evalCount;
+      }
+    }
+
+    models.set(m, entry);
+  }
+
+  const result = Array.from(models.entries()).map(([model, data]) => {
+    // Weighted average TPS: sum(tps * tokens) / sum(tokens)
+    const avgTps = data.tpsCount > 0 ? Math.round((data.totalTpsWeighted / data.tpsCount) * 10) / 10 : null;
+
+    return {
+      model,
+      requestCount: data.requestCount,
+      promptTokens: data.promptTokens,
+      completionTokens: data.completionTokens,
+      totalTokens: data.totalTokens,
+      avgTps,
+    };
+  }).sort((a, b) => b.requestCount - a.requestCount);
+
+  res.json(result);
+});
+
 // ── Logs ─────────────────────────────────────────────
 
 router.get('/logs', async (req, res) => {

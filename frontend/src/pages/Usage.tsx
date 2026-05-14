@@ -12,6 +12,12 @@ import {
   LineChart, Line,
 } from 'recharts'
 
+function formatTps(tps: number | null | undefined): string {
+  if (tps == null) return '—'
+  if (tps >= 100) return `${Math.round(tps)} t/s`
+  return `${tps.toFixed(1)} t/s`
+}
+
 export default function Usage() {
   const [period, setPeriod] = useState('day')
   const [accountId, setAccountId] = useState('')
@@ -20,6 +26,11 @@ export default function Usage() {
   const { data: aggData, isLoading: aggLoading } = useQuery({
     queryKey: ['usage-aggregate', period, accountId, model],
     queryFn: () => api.getUsageAggregate({ period, ...(accountId ? { accountId } : {}), ...(model ? { model } : {}) }),
+  })
+
+  const { data: byModelData } = useQuery({
+    queryKey: ['usage-by-model'],
+    queryFn: () => api.getUsageByModel(),
   })
 
   const { data: usageRecords, isLoading: recLoading } = useQuery({
@@ -44,24 +55,24 @@ export default function Usage() {
     completion: a.completionTokens,
   }))
 
-  const modelDist = (aggData || []).reduce((acc: Record<string, number>, a: any) => {
-    acc[a.model] = (acc[a.model] || 0) + a.requestCount
-    return acc
-  }, {})
-  const barData = Object.entries(modelDist).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
+  const barData = (byModelData || [])
+    .map((m: any) => ({ name: m.model, tokens: m.totalTokens, requests: m.requestCount }))
+    .sort((a: any, b: any) => b.tokens - a.tokens)
 
   function exportCSV() {
-    const rows = (usageRecords || []).map((r: any) => ({
-      时间: new Date(r.createdAt).toISOString(),
-      模型: r.model,
-      端点: r.endpoint,
-      账号: r.accountId,
-      用户: r.proxyUserId,
-      状态码: r.statusCode,
-      输入Token: r.promptEvalCount,
-      输出Token: r.evalCount,
-      耗时: r.totalDuration,
-    }))
+    const rows = (usageRecords || []).map((r: any) => {
+      const tps = r.evalCount && r.evalDuration
+        ? Math.round((r.evalCount / (r.evalDuration / 1e9)) * 10) / 10
+        : null
+      return {
+        时间: new Date(r.createdAt).toISOString(),
+        模型: r.model,
+        端点: r.endpoint,
+        输入Token: r.promptEvalCount,
+        输出Token: r.evalCount,
+        输出速度_tps: tps,
+      }
+    })
     if (!rows.length) return
     const headers = Object.keys(rows[0])
     const csv = [headers.join(','), ...rows.map((r: any) => headers.map((h) => JSON.stringify(r[h as keyof typeof r] ?? '')).join(','))].join('\n')
@@ -145,7 +156,7 @@ export default function Usage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>模型分布</CardTitle>
+            <CardTitle>Token 消耗分布</CardTitle>
           </CardHeader>
           <CardContent>
             {aggLoading ? <Skeleton className="h-60" /> : (
@@ -155,13 +166,49 @@ export default function Usage() {
                   <XAxis type="number" fontSize={12} stroke="currentColor" opacity={0.5} />
                   <YAxis type="category" dataKey="name" width={100} fontSize={11} stroke="currentColor" opacity={0.5} />
                   <Tooltip contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }} />
-                  <Bar dataKey="value" fill="#4f46e5" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="tokens" fill="#4f46e5" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {(byModelData?.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>模型消耗明细</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="py-3 px-4 text-left font-medium text-muted-foreground">模型</th>
+                    <th className="py-3 px-4 text-right font-medium text-muted-foreground">请求数</th>
+                    <th className="py-3 px-4 text-right font-medium text-muted-foreground">输入 Token</th>
+                    <th className="py-3 px-4 text-right font-medium text-muted-foreground">输出 Token</th>
+                    <th className="py-3 px-4 text-right font-medium text-muted-foreground">总 Token</th>
+                    <th className="py-3 px-4 text-right font-medium text-muted-foreground">平均速度</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {(byModelData || []).map((m: any) => (
+                    <tr key={m.model} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-4 font-mono text-xs">{m.model}</td>
+                      <td className="py-3 px-4 text-right">{m.requestCount.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-right">{formatTokens(m.promptTokens)}</td>
+                      <td className="py-3 px-4 text-right">{formatTokens(m.completionTokens)}</td>
+                      <td className="py-3 px-4 text-right">{formatTokens(m.totalTokens)}</td>
+                      <td className="py-3 px-4 text-right">{formatTps(m.avgTps)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -176,9 +223,9 @@ export default function Usage() {
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">模型</th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">端点</th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">状态</th>
-                  <th className="py-3 px-4 text-left font-medium text-muted-foreground">输入</th>
-                  <th className="py-3 px-4 text-left font-medium text-muted-foreground">输出</th>
-                  <th className="py-3 px-4 text-left font-medium text-muted-foreground">耗时</th>
+                  <th className="py-3 px-4 text-right font-medium text-muted-foreground">输入</th>
+                  <th className="py-3 px-4 text-right font-medium text-muted-foreground">输出</th>
+                  <th className="py-3 px-4 text-right font-medium text-muted-foreground">输出速度</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -186,21 +233,26 @@ export default function Usage() {
                   <tr><td colSpan={7} className="py-8"><Skeleton className="h-32" /></td></tr>
                 ) : (usageRecords || []).length === 0 ? (
                   <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">暂无记录</td></tr>
-                ) : (usageRecords || []).map((r: any) => (
-                  <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4">{new Date(r.createdAt).toLocaleString('zh-CN')}</td>
-                    <td className="py-3 px-4 font-mono text-xs">{r.model}</td>
-                    <td className="py-3 px-4 text-muted-foreground">{r.endpoint}</td>
-                    <td className="py-3 px-4">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.statusCode >= 400 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                        {r.statusCode}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">{r.promptEvalCount != null ? formatTokens(r.promptEvalCount) : '—'}</td>
-                    <td className="py-3 px-4">{r.evalCount != null ? formatTokens(r.evalCount) : '—'}</td>
-                    <td className="py-3 px-4 text-muted-foreground">{r.totalDuration ? `${(r.totalDuration / 1e9).toFixed(2)}s` : '—'}</td>
-                  </tr>
-                ))}
+                ) : (usageRecords || []).map((r: any) => {
+                  const tps = r.evalCount && r.evalDuration
+                    ? Math.round((r.evalCount / (r.evalDuration / 1e9)) * 10) / 10
+                    : null
+                  return (
+                    <tr key={r.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-4">{new Date(r.createdAt).toLocaleString('zh-CN')}</td>
+                      <td className="py-3 px-4 font-mono text-xs">{r.model}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{r.endpoint}</td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.statusCode >= 400 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                          {r.statusCode}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">{r.promptEvalCount != null ? formatTokens(r.promptEvalCount) : '—'}</td>
+                      <td className="py-3 px-4 text-right">{r.evalCount != null ? formatTokens(r.evalCount) : '—'}</td>
+                      <td className="py-3 px-4 text-right">{formatTps(tps)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
