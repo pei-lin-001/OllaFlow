@@ -1,0 +1,26 @@
+-- Redefine UsageRecord to make accountId nullable with SetNull on delete
+CREATE TABLE "new_UsageRecord" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "accountId" INTEGER,
+    "proxyUserId" INTEGER,
+    "model" TEXT NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "promptEvalCount" INTEGER,
+    "evalCount" INTEGER,
+    "totalDuration" INTEGER,
+    "loadDuration" INTEGER,
+    "promptEvalDuration" INTEGER,
+    "evalDuration" INTEGER,
+    "statusCode" INTEGER NOT NULL,
+    "errorMessage" TEXT,
+    "streamed" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "UsageRecord_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "Account" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "UsageRecord_proxyUserId_fkey" FOREIGN KEY ("proxyUserId") REFERENCES "ProxyUser" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO "new_UsageRecord" ("id", "accountId", "proxyUserId", "model", "endpoint", "promptEvalCount", "evalCount", "totalDuration", "loadDuration", "promptEvalDuration", "evalDuration", "statusCode", "errorMessage", "streamed", "createdAt") SELECT "id", "accountId", "proxyUserId", "model", "endpoint", "promptEvalCount", "evalCount", "totalDuration", "loadDuration", "promptEvalDuration", "evalDuration", "statusCode", "errorMessage", "streamed", "createdAt" FROM "UsageRecord";
+DROP TABLE "UsageRecord";
+ALTER TABLE "new_UsageRecord" RENAME TO "UsageRecord";
+CREATE INDEX "UsageRecord_accountId_createdAt_idx" ON "UsageRecord"("accountId", "createdAt");
+CREATE INDEX "UsageRecord_proxyUserId_createdAt_idx" ON "UsageRecord"("proxyUserId", "createdAt");
+CREATE INDEX "UsageRecord_model_createdAt_idx" ON "UsageRecord"("model", "createdAt");

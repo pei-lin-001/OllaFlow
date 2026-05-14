@@ -42,8 +42,8 @@ model Account {
 
 model UsageRecord {
   id                 Int       @id @default(autoincrement())
-  accountId          Int
-  account            Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId          Int?
+  account            Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
   proxyUserId        Int?
   proxyUser          ProxyUser? @relation(fields: [proxyUserId], references: [id], onDelete: SetNull)
   model              String

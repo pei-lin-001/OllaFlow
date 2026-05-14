@@ -141,7 +141,6 @@ router.patch('/accounts/:id', async (req, res) => {
 router.delete('/accounts/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
-    await prisma.usageAggregate.deleteMany({ where: { accountId: id } });
     await prisma.account.delete({ where: { id } });
     res.status(204).send();
   } catch (err: any) {
@@ -227,7 +226,6 @@ router.patch('/proxy-users/:id', async (req, res) => {
 router.delete('/proxy-users/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
-    await prisma.usageAggregate.deleteMany({ where: { proxyUserId: id } });
     await prisma.proxyUser.delete({ where: { id } });
     res.status(204).send();
   } catch (err: any) {
