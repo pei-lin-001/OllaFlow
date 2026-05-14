@@ -47,7 +47,7 @@ export function createNdjsonInterceptor(callbacks: StreamInterceptorCallbacks): 
 
       callback();
     },
-    flush(callback) {
+    async flush(callback) {
       if (buffer.trim()) {
         try {
           const parsed = JSON.parse(buffer.trim()) as OllamaStreamChunk;
@@ -71,14 +71,16 @@ export function createNdjsonInterceptor(callbacks: StreamInterceptorCallbacks): 
         this.push(buffer);
       }
 
-      if (usage) {
-        callbacks.onUsage(usage);
-      } else {
-        // Stream ended without usage chunk (client disconnected early?)
-        callbacks.onUsage({});
+      try {
+        if (usage) {
+          await callbacks.onUsage(usage);
+        } else {
+          await callbacks.onUsage({});
+        }
+        callback();
+      } catch (err: any) {
+        callback(err);
       }
-
-      callback();
     },
   });
 }
@@ -160,18 +162,22 @@ export function createSSEInterceptor(callbacks: SSEInterceptorCallbacks): Transf
 
       callback();
     },
-    flush(callback) {
+    async flush(callback) {
       if (buffer.length > 0) {
         this.push(buffer);
       }
-      if (lastUsage) {
-        callbacks.onUsage(lastUsage, lastModel ?? undefined);
-      } else if (lastError) {
-        callbacks.onUsage({ prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, lastModel ?? undefined);
-      } else {
-        callbacks.onUsage({}, lastModel ?? undefined);
+      try {
+        if (lastUsage) {
+          await callbacks.onUsage(lastUsage, lastModel ?? undefined);
+        } else if (lastError) {
+          await callbacks.onUsage({ prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, lastModel ?? undefined);
+        } else {
+          await callbacks.onUsage({}, lastModel ?? undefined);
+        }
+        callback();
+      } catch (err: any) {
+        callback(err);
       }
-      callback();
     },
   });
 }

@@ -20,8 +20,8 @@ function formatTps(tps: number | null | undefined): string {
 
 export default function Usage() {
   const [period, setPeriod] = useState('day')
-  const [accountId, setAccountId] = useState('')
-  const [model, setModel] = useState('')
+  const [accountId] = useState('')
+  const [model] = useState('')
 
   const { data: aggData, isLoading: aggLoading } = useQuery({
     queryKey: ['usage-aggregate', period, accountId, model],

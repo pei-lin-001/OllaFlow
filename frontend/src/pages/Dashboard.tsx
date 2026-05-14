@@ -145,7 +145,7 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
-                  {pieData.map((_, i) => (
+                  {pieData.map((_: any, i: number) => (
                     <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
@@ -156,7 +156,7 @@ export default function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
             <div className="flex flex-wrap justify-center gap-3 mt-2">
-              {pieData.map((entry, i) => (
+              {pieData.map((entry: any, i: number) => (
                 <div key={entry.name} className="flex items-center gap-1.5 text-xs">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                   <span className="text-muted-foreground">{entry.name}</span>
