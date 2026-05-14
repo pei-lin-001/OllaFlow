@@ -56,10 +56,13 @@ export async function proxyHandler(req: Request, res: Response) {
 
   const shouldRecordUsage = !shouldSkipUsage(path);
 
+  let ttffbMs: number | null = null;
+
   let upstreamResponse;
   try {
     const forwardBody = rawBody ? rawBody : bodyStr;
     upstreamResponse = await forwardToOllama(account, method, path, req.headers, forwardBody);
+    ttffbMs = Date.now() - startTime;
   } catch (err: any) {
     await markAccountFailure(account.id);
     await logRequest({
@@ -71,6 +74,7 @@ export async function proxyHandler(req: Request, res: Response) {
       statusCode: 502,
       error: err?.message || 'Upstream connection failed',
       durationMs: Date.now() - startTime,
+      ttffbMs,
       requestBody: config.SAVE_REQUEST_BODIES ? bodyStr ?? undefined : undefined,
     });
     return res.status(502).json({ error: 'Failed to connect to upstream Ollama Cloud.' });
@@ -111,6 +115,7 @@ export async function proxyHandler(req: Request, res: Response) {
         statusCode: upstreamResponse.statusCode,
         error: errorMsg,
         durationMs: Date.now() - startTime,
+        ttffbMs,
         requestBody: config.SAVE_REQUEST_BODIES ? bodyStr ?? undefined : undefined,
         responseBody: config.SAVE_RESPONSE_BODIES ? body : undefined,
       });
@@ -127,6 +132,7 @@ export async function proxyHandler(req: Request, res: Response) {
         statusCode: upstreamResponse.statusCode,
         error: err.message,
         durationMs: Date.now() - startTime,
+        ttffbMs,
         requestBody: config.SAVE_REQUEST_BODIES ? bodyStr ?? undefined : undefined,
       });
       res.end();
@@ -159,6 +165,7 @@ export async function proxyHandler(req: Request, res: Response) {
             method,
             statusCode: upstreamResponse.statusCode,
             durationMs: Date.now() - startTime,
+            ttffbMs,
             requestBody: config.SAVE_REQUEST_BODIES ? bodyStr ?? undefined : undefined,
           });
         },
@@ -196,6 +203,7 @@ export async function proxyHandler(req: Request, res: Response) {
             method,
             statusCode: upstreamResponse.statusCode,
             durationMs: Date.now() - startTime,
+            ttffbMs,
             requestBody: config.SAVE_REQUEST_BODIES ? bodyStr ?? undefined : undefined,
           });
         },
@@ -281,6 +289,7 @@ export async function proxyHandler(req: Request, res: Response) {
         method,
         statusCode: upstreamResponse.statusCode,
         durationMs: Date.now() - startTime,
+        ttffbMs,
         requestBody: config.SAVE_REQUEST_BODIES ? bodyStr ?? undefined : undefined,
         responseBody: config.SAVE_RESPONSE_BODIES ? body : undefined,
       });
@@ -296,8 +305,9 @@ async function logRequest(data: {
   endpoint: string;
   method: string;
   statusCode?: number;
-  error?: string;
   durationMs: number;
+  ttffbMs?: number | null;
+  error?: string;
   requestBody?: string;
   responseBody?: string;
 }) {
@@ -309,10 +319,11 @@ async function logRequest(data: {
       endpoint: data.endpoint,
       method: data.method,
       statusCode: data.statusCode ?? null,
+      durationMs: data.durationMs,
+      ttffbMs: data.ttffbMs ?? null,
       requestBody: data.requestBody ?? null,
       responseBody: data.responseBody ?? null,
       error: data.error ?? null,
-      durationMs: data.durationMs,
     },
   });
 }

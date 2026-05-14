@@ -7,6 +7,12 @@ import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
 
+function formatDuration(ms: number | null | undefined): string {
+  if (ms == null) return '—'
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(2)}s`
+}
+
 export default function Logs() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
@@ -25,13 +31,14 @@ export default function Logs() {
 
   function exportCSV() {
     if (!logs.length) return
-    const headers = ['时间', '方法', '端点', '状态码', '耗时ms', '模型', '错误']
+    const headers = ['时间', '方法', '端点', '状态码', '耗时(s)', '首字延迟(s)', '模型', '错误']
     const csv = [headers.join(','), ...logs.map((r: any) => headers.map((h) => JSON.stringify(r[{
       '时间': 'createdAt',
       '方法': 'method',
       '端点': 'endpoint',
       '状态码': 'statusCode',
-      '耗时ms': 'durationMs',
+      '耗时(s)': 'durationMs',
+      '首字延迟(s)': 'ttffbMs',
       '模型': 'model',
       '错误': 'error',
     }[h] as string] ?? '')).join(','))].join('\n')
@@ -85,14 +92,15 @@ export default function Logs() {
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">端点</th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">状态</th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">耗时</th>
+                  <th className="py-3 px-4 text-left font-medium text-muted-foreground">首字延迟</th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">错误</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {isLoading ? (
-                  <tr><td colSpan={7} className="py-8"><Skeleton className="h-32" /></td></tr>
+                  <tr><td colSpan={8} className="py-8"><Skeleton className="h-32" /></td></tr>
                 ) : logs.length === 0 ? (
-                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">
                     <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" /> 暂无日志记录。
                   </td></tr>
                 ) : logs.map((r: any) => {
@@ -120,18 +128,21 @@ export default function Logs() {
                             {r.statusCode}
                           </span>
                         </td>
-                        <td className="py-3 px-4">{r.durationMs}ms</td>
+                        <td className="py-3 px-4">{formatDuration(r.durationMs)}</td>
+                        <td className="py-3 px-4">{formatDuration(r.ttffbMs)}</td>
                         <td className="py-3 px-4">
                           {r.error ? <span className="text-red-600 text-xs truncate max-w-[200px] block">{r.error}</span> : '—'}
                         </td>
                       </tr>
                       {isOpen && (
                         <tr key={`detail-${r.id}`}>
-                          <td colSpan={7} className="p-4 bg-muted/20">
+                          <td colSpan={8} className="p-4 bg-muted/20">
                             <div className="space-y-3">
                               {r.model && <div className="text-xs"><span className="text-muted-foreground">模型：</span><span className="font-mono">{r.model}</span></div>}
                               {r.accountId && <div className="text-xs"><span className="text-muted-foreground">账号 ID：</span>{r.accountId}</div>}
                               {r.proxyUserId && <div className="text-xs"><span className="text-muted-foreground">用户 ID：</span>{r.proxyUserId}</div>}
+                              {r.durationMs != null && <div className="text-xs"><span className="text-muted-foreground">总耗时：</span>{formatDuration(r.durationMs)}</div>}
+                              {r.ttffbMs != null && <div className="text-xs"><span className="text-muted-foreground">首字延迟：</span>{formatDuration(r.ttffbMs)}</div>}
                               {r.requestBody && (
                                 <div>
                                   <div className="text-xs text-muted-foreground mb-1">请求体</div>

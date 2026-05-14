@@ -3,6 +3,7 @@ import { Activity, CreditCard, Users, Server, ArrowUpRight, ArrowDownRight } fro
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import { formatTokens } from '@/lib/utils'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -70,7 +71,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard title="总请求数" value={data?.totalRequests?.toLocaleString() || '0'} icon={Activity} trend={12} />
-        <StatCard title="今日 Token" value={data?.todayTokens ? `${(data.todayTokens / 1000).toFixed(1)}k` : '0'} icon={CreditCard} trend={8} />
+        <StatCard title="今日 Token" value={formatTokens(data?.todayTokens)} icon={CreditCard} trend={8} />
         <StatCard title="活跃账号" value={data?.totalAccounts?.toString() || '0'} icon={Server} />
         <StatCard title="代理用户" value={data?.totalProxyUsers?.toString() || '0'} icon={Users} />
       </div>

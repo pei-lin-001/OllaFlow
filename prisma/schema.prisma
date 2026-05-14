@@ -92,10 +92,11 @@ model RequestLog {
   endpoint     String
   method       String
   statusCode   Int?
+  durationMs   Int
+  ttffbMs      Int?
   requestBody  String?
   responseBody String?
   error        String?
-  durationMs   Int
   createdAt    DateTime @default(now())
 
   @@index([createdAt])

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import { formatTokens } from '@/lib/utils'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line,
@@ -101,7 +102,7 @@ export default function Usage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">输入 Token</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.prompt ? `${(totals.prompt / 1000).toFixed(1)}k` : '0'}</div>
+            <div className="text-2xl font-bold">{formatTokens(totals.prompt)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -109,7 +110,7 @@ export default function Usage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">输出 Token</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.completion ? `${(totals.completion / 1000).toFixed(1)}k` : '0'}</div>
+            <div className="text-2xl font-bold">{formatTokens(totals.completion)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -117,7 +118,7 @@ export default function Usage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">总 Token</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.total ? `${(totals.total / 1000).toFixed(1)}k` : '0'}</div>
+            <div className="text-2xl font-bold">{formatTokens(totals.total)}</div>
           </CardContent>
         </Card>
       </div>
@@ -195,8 +196,8 @@ export default function Usage() {
                         {r.statusCode}
                       </span>
                     </td>
-                    <td className="py-3 px-4">{r.promptEvalCount ?? '—'}</td>
-                    <td className="py-3 px-4">{r.evalCount ?? '—'}</td>
+                    <td className="py-3 px-4">{r.promptEvalCount != null ? formatTokens(r.promptEvalCount) : '—'}</td>
+                    <td className="py-3 px-4">{r.evalCount != null ? formatTokens(r.evalCount) : '—'}</td>
                     <td className="py-3 px-4 text-muted-foreground">{r.totalDuration ? `${(r.totalDuration / 1e9).toFixed(2)}s` : '—'}</td>
                   </tr>
                 ))}
