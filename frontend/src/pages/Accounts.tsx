@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, CheckCircle2, Loader2, Server } from 'lucide-react'
+import { Plus, Pencil, Trash2, CheckCircle2, Loader2, Server, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,8 +19,39 @@ interface Account {
   isActive: boolean
   weight: number
   failCount: number
+  disabledAt: string | null
   lastUsedAt: string | null
   createdAt: string
+}
+
+function CooldownTimer({ disabledAt, cooldownSeconds }: { disabledAt: string; cooldownSeconds: number }) {
+  const [remaining, setRemaining] = useState(0)
+
+  useEffect(() => {
+    const disabledTime = new Date(disabledAt).getTime()
+    const recoverAt = disabledTime + cooldownSeconds * 1000
+
+    function update() {
+      const left = Math.max(0, Math.ceil((recoverAt - Date.now()) / 1000))
+      setRemaining(left)
+    }
+
+    update()
+    const timer = setInterval(update, 1000)
+    return () => clearInterval(timer)
+  }, [disabledAt, cooldownSeconds])
+
+  if (remaining <= 0) {
+    return <span className="text-green-600 text-xs">自动恢复中...</span>
+  }
+
+  const min = Math.floor(remaining / 60)
+  const sec = remaining % 60
+  return (
+    <span className="text-amber-600 text-xs">
+      自动恢复倒计时 {min > 0 ? `${min}分` : ''}{sec}秒
+    </span>
+  )
 }
 
 export default function Accounts() {
@@ -29,8 +60,12 @@ export default function Accounts() {
   const [editing, setEditing] = useState<Account | null>(null)
   const [form, setForm] = useState({ name: '', apiKey: '', proxyUrl: '', proxyAuth: '', weight: 1, isActive: true })
   const [testing, setTesting] = useState<number | null>(null)
+  const [reactivating, setReactivating] = useState<number | null>(null)
 
   const { data, isLoading } = useQuery({ queryKey: ['accounts'], queryFn: api.getAccounts })
+  const { data: cbConfig } = useQuery({ queryKey: ['circuitBreakerConfig'], queryFn: api.getCircuitBreakerConfig })
+
+  const cooldownSeconds: number = cbConfig?.cooldownSeconds ?? 300
 
   const create = useMutation({
     mutationFn: api.createAccount,
@@ -105,10 +140,24 @@ export default function Accounts() {
     try {
       const res = await api.testAccount(id)
       toast[res.success ? 'success' : 'error'](res.success ? '连接正常' : `失败：${res.error || res.statusCode}`)
+      qc.invalidateQueries({ queryKey: ['accounts'] })
     } catch (e: any) {
       toast.error(e.message)
     } finally {
       setTesting(null)
+    }
+  }
+
+  async function handleReactivate(id: number) {
+    setReactivating(id)
+    try {
+      await api.reactivateAccount(id)
+      toast.success('账号已重新激活')
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setReactivating(null)
     }
   }
 
@@ -191,37 +240,56 @@ export default function Accounts() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {(data || []).map((acc: Account) => (
-                  <tr key={acc.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4 font-medium">{acc.name}</td>
-                    <td className="py-3 px-4 text-muted-foreground">{acc.proxyUrl || '—'}</td>
-                    <td className="py-3 px-4">{acc.weight}</td>
-                    <td className="py-3 px-4">
-                      {acc.failCount >= 3 ? (
-                        <Badge variant="destructive">已失败</Badge>
-                      ) : acc.isActive ? (
-                        <Badge variant="success">启用</Badge>
-                      ) : (
-                        <Badge variant="secondary">已禁用</Badge>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {acc.lastUsedAt ? new Date(acc.lastUsedAt).toLocaleString('zh-CN') : '—'}</td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleTest(acc.id)} disabled={testing === acc.id}>
-                          {testing === acc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(acc)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => remove.mutate(acc.id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {(data || []).map((acc: Account) => {
+                  const isCircuitBroken = !acc.isActive && acc.failCount >= (cbConfig?.threshold ?? 3)
+                  return (
+                    <tr key={acc.id} className={`hover:bg-muted/30 transition-colors${isCircuitBroken ? ' bg-destructive/5' : ''}`}>
+                      <td className="py-3 px-4 font-medium">{acc.name}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{acc.proxyUrl || '—'}</td>
+                      <td className="py-3 px-4">{acc.weight}</td>
+                      <td className="py-3 px-4">
+                        {isCircuitBroken ? (
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="destructive">熔断 ({acc.failCount}次失败)</Badge>
+                            {acc.disabledAt && (
+                              <CooldownTimer disabledAt={acc.disabledAt} cooldownSeconds={cooldownSeconds} />
+                            )}
+                          </div>
+                        ) : acc.isActive ? (
+                          <Badge variant="success">启用</Badge>
+                        ) : (
+                          <Badge variant="secondary">已禁用</Badge>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">
+                        {acc.lastUsedAt ? new Date(acc.lastUsedAt).toLocaleString('zh-CN') : '—'}</td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {isCircuitBroken && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleReactivate(acc.id)}
+                              disabled={reactivating === acc.id}
+                              title="重新激活"
+                            >
+                              {reactivating === acc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => handleTest(acc.id)} disabled={testing === acc.id}>
+                            {testing === acc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(acc)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => remove.mutate(acc.id)}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
                 {(!data || data.length === 0) && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-muted-foreground">
