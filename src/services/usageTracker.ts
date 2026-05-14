@@ -9,7 +9,10 @@ export async function recordUsage(params: {
   statusCode: number;
   usage: OllamaUsage & { errorMessage?: string; model?: string };
   streamed: boolean;
+  durationMs?: number;
 }): Promise<void> {
+  const durationFallbackNs = params.durationMs != null ? Math.round(params.durationMs * 1e6) : undefined;
+
   await prisma.usageRecord.create({
     data: {
       accountId: params.accountId,
@@ -18,10 +21,10 @@ export async function recordUsage(params: {
       endpoint: params.endpoint,
       promptEvalCount: params.usage.prompt_eval_count ?? null,
       evalCount: params.usage.eval_count ?? null,
-      totalDuration: params.usage.total_duration ?? null,
+      totalDuration: params.usage.total_duration ?? durationFallbackNs ?? null,
       loadDuration: params.usage.load_duration ?? null,
       promptEvalDuration: params.usage.prompt_eval_duration ?? null,
-      evalDuration: params.usage.eval_duration ?? null,
+      evalDuration: params.usage.eval_duration ?? durationFallbackNs ?? null,
       statusCode: params.statusCode,
       errorMessage: params.usage.errorMessage ?? null,
       streamed: params.streamed,
@@ -88,7 +91,10 @@ export async function recordOpenAIUsage(params: {
   statusCode: number;
   usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
   streamed: boolean;
+  durationMs?: number;
 }): Promise<void> {
+  const durationFallbackNs = params.durationMs != null ? Math.round(params.durationMs * 1e6) : undefined;
+
   await prisma.usageRecord.create({
     data: {
       accountId: params.accountId,
@@ -97,6 +103,8 @@ export async function recordOpenAIUsage(params: {
       endpoint: params.endpoint,
       promptEvalCount: params.usage.prompt_tokens ?? null,
       evalCount: params.usage.completion_tokens ?? null,
+      totalDuration: durationFallbackNs ?? null,
+      evalDuration: durationFallbackNs ?? null,
       statusCode: params.statusCode,
       streamed: params.streamed,
     },

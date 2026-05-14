@@ -154,6 +154,7 @@ export async function proxyHandler(req: Request, res: Response) {
               statusCode: upstreamResponse.statusCode,
               usage,
               streamed: true,
+              durationMs: Date.now() - startTime,
             });
           }
           await markAccountSuccess(account.id);
@@ -192,6 +193,7 @@ export async function proxyHandler(req: Request, res: Response) {
               statusCode: upstreamResponse.statusCode,
               usage,
               streamed: true,
+              durationMs: Date.now() - startTime,
             });
           }
           await markAccountSuccess(account.id);
@@ -249,6 +251,7 @@ export async function proxyHandler(req: Request, res: Response) {
             statusCode: upstreamResponse.statusCode,
             usage,
             streamed: false,
+            durationMs: Date.now() - startTime,
           });
         } else {
           let usage = {} as Parameters<typeof recordUsage>[0]['usage'];
@@ -276,6 +279,7 @@ export async function proxyHandler(req: Request, res: Response) {
             statusCode: upstreamResponse.statusCode,
             usage,
             streamed: false,
+            durationMs: Date.now() - startTime,
           });
         }
       }
