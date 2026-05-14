@@ -43,9 +43,9 @@ COPY --from=frontend-builder /app/dist/frontend ./dist/frontend
 RUN mkdir -p /app/prisma/data
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=6478
 ENV DATABASE_URL="file:/app/prisma/data/app.db"
 
-EXPOSE 3000
+EXPOSE 6478
 
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

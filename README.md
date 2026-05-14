@@ -72,14 +72,17 @@
 git clone https://github.com/pei-lin-001/OllaFlow.git
 cd OllaFlow
 
-# 一键部署
+# 一键部署（默认端口 6478）
 bash install.sh
+
+# 或指定端口
+bash install.sh 8080
 ```
 
 部署完成后访问：
 
-- 管理面板：`http://localhost:3000/admin`
-- 代理 API：`http://localhost:3000/api` / `http://localhost:3000/v1`
+- 管理面板：`http://localhost:6478/admin`
+- 代理 API：`http://localhost:6478/api` / `http://localhost:6478/v1`
 
 默认管理员账号：`admin` / `admin`（**请立即修改**）
 
@@ -110,19 +113,19 @@ cd frontend && npm run build && cd ..
 # 6. 构建后端
 npx tsc
 
-# 7. 启动
-npm start
+# 7. 启动（默认端口 6478，可通过 PORT 环境变量修改）
+PORT=6478 npm start
 ```
 
 </details>
 
 ## 配置说明
 
-所有配置通过环境变量（`.env` 文件）管理：
+所有配置通过环境变量（`.env` 文件或 `docker-compose.yml`）管理：
 
 | 变量 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
-| `PORT` | 否 | `3000` | 服务端口 |
+| `PORT` | 否 | `6478` | 服务监听端口 |
 | `NODE_ENV` | 否 | `development` | 运行环境 |
 | `DATABASE_URL` | 否 | `file:./data/app.db` | SQLite 数据库路径 |
 | `ENCRYPTION_KEY` | **是** | — | API Key 加密密钥（≥32 字符） |
@@ -134,6 +137,16 @@ npm start
 | `SAVE_REQUEST_BODIES` | 否 | `false` | 是否保存请求体 |
 | `SAVE_RESPONSE_BODIES` | 否 | `false` | 是否保存响应体 |
 
+Docker 部署时可通过 `OLLAFLOW_PORT` 环境变量修改端口：
+
+```bash
+# 使用默认端口 6478
+bash install.sh
+
+# 自定义端口
+OLLAFLOW_PORT=8080 bash install.sh
+```
+
 ## 使用方法
 
 ### 客户端配置
@@ -142,13 +155,13 @@ npm start
 
 ```bash
 # Ollama 原生 API
-curl http://localhost:3000/api/chat \
+curl http://localhost:6478/api/chat \
   -H "Authorization: Bearer YOUR_PROXY_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-oss:20b","messages":[{"role":"user","content":"hello"}]}'
 
 # OpenAI 兼容 API
-curl http://localhost:3000/v1/chat/completions \
+curl http://localhost:6478/v1/chat/completions \
   -H "Authorization: Bearer YOUR_PROXY_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-oss:20b","messages":[{"role":"user","content":"hello"}]}'
@@ -160,7 +173,7 @@ curl http://localhost:3000/v1/chat/completions \
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:3000/v1",
+    base_url="http://localhost:6478/v1",
     api_key="YOUR_PROXY_KEY"
 )
 
@@ -174,7 +187,7 @@ response = client.chat.completions.create(
 
 ```bash
 # 设置环境变量指向代理
-OLLAMA_HOST=http://localhost:3000 OLLAMA_API_KEY=YOUR_PROXY_KEY ollama run gpt-oss:20b
+OLLAMA_HOST=http://localhost:6478 OLLAMA_API_KEY=YOUR_PROXY_KEY ollama run gpt-oss:20b
 ```
 
 ## 管理面板

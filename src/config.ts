@@ -4,9 +4,9 @@ import { z } from 'zod';
 dotenv.config();
 
 const configSchema = z.object({
-  PORT: z.string().default('3000').transform(Number),
+  PORT: z.string().default('6478').transform(Number),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  DATABASE_URL: z.string().default('file:./data/app.db'),
+  DATABASE_URL: z.string().default('file:./prisma/data/app.db'),
   ENCRYPTION_KEY: z.string().min(32, 'Encryption key must be at least 32 characters'),
   JWT_SECRET: z.string().min(16, 'JWT secret must be at least 16 characters'),
   OLLAMA_CLOUD_HOST: z.string().url().default('https://ollama.com'),

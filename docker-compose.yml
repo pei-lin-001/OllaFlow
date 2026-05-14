@@ -4,18 +4,21 @@ services:
     container_name: ollaflow
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${OLLAFLOW_PORT:-6478}:${OLLAFLOW_PORT:-6478}"
     volumes:
       - ollaflow-data:/app/prisma/data
     environment:
-      - ENCRYPTION_KEY=change_me_at_least_32_chars_long!!
-      - JWT_SECRET=change_me_at_least_16_chars!
-      - OLLAMA_CLOUD_HOST=https://ollama.com
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=admin
-      - DATABASE_URL=file:/app/prisma/data/app.db
-      - PORT=3000
+      - PORT=${OLLAFLOW_PORT:-6478}
       - NODE_ENV=production
+      - DATABASE_URL=file:/app/prisma/data/app.db
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change_me_at_least_32_chars_long!!}
+      - JWT_SECRET=${JWT_SECRET:-change_me_at_least_16_chars!}
+      - OLLAMA_CLOUD_HOST=${OLLAMA_CLOUD_HOST:-https://ollama.com}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - LOG_RETENTION_DAYS=${LOG_RETENTION_DAYS:-30}
+      - SAVE_REQUEST_BODIES=${SAVE_REQUEST_BODIES:-false}
+      - SAVE_RESPONSE_BODIES=${SAVE_RESPONSE_BODIES:-false}
 
 volumes:
   ollaflow-data:
