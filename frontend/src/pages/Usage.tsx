@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import { useAutoRefreshStore } from '@/store/autoRefresh'
 import { formatTokens } from '@/lib/utils'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -22,20 +23,25 @@ export default function Usage() {
   const [period, setPeriod] = useState('day')
   const [accountId] = useState('')
   const [model] = useState('')
+  const { enabled, interval } = useAutoRefreshStore()
+  const refetchInterval = enabled ? interval : false
 
   const { data: aggData, isLoading: aggLoading } = useQuery({
     queryKey: ['usage-aggregate', period, accountId, model],
     queryFn: () => api.getUsageAggregate({ period, ...(accountId ? { accountId } : {}), ...(model ? { model } : {}) }),
+    refetchInterval,
   })
 
   const { data: byModelData } = useQuery({
     queryKey: ['usage-by-model'],
     queryFn: () => api.getUsageByModel(),
+    refetchInterval,
   })
 
   const { data: usageRecords, isLoading: recLoading } = useQuery({
     queryKey: ['usage', accountId, model],
     queryFn: () => api.getUsage({ ...(accountId ? { accountId } : {}), ...(model ? { model } : {}) }),
+    refetchInterval,
   })
 
   const totals = (aggData || []).reduce(

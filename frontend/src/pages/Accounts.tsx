@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import { useAutoRefreshStore } from '@/store/autoRefresh'
 import { toast } from 'sonner'
 
 interface Account {
@@ -61,9 +62,11 @@ export default function Accounts() {
   const [form, setForm] = useState({ name: '', apiKey: '', proxyUrl: '', proxyAuth: '', weight: 1, isActive: true })
   const [testing, setTesting] = useState<number | null>(null)
   const [reactivating, setReactivating] = useState<number | null>(null)
+  const { enabled, interval } = useAutoRefreshStore()
+  const refetchInterval = enabled ? interval : false
 
-  const { data, isLoading } = useQuery({ queryKey: ['accounts'], queryFn: api.getAccounts })
-  const { data: cbConfig } = useQuery({ queryKey: ['circuitBreakerConfig'], queryFn: api.getCircuitBreakerConfig })
+  const { data, isLoading } = useQuery({ queryKey: ['accounts'], queryFn: api.getAccounts, refetchInterval })
+  const { data: cbConfig } = useQuery({ queryKey: ['circuitBreakerConfig'], queryFn: api.getCircuitBreakerConfig, refetchInterval })
 
   const cooldownSeconds: number = cbConfig?.cooldownSeconds ?? 300
 

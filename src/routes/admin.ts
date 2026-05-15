@@ -7,6 +7,7 @@ import { config } from '../config.js';
 import { encrypt, decrypt } from '../crypto.js';
 import { adminAuthMiddleware } from '../middleware/adminAuth.js';
 import { reactivateAccount } from '../services/accountSelector.js';
+import { getActiveRequests } from '../services/activeRequests.js';
 
 const router = Router();
 
@@ -72,6 +73,14 @@ router.get('/circuit-breaker-config', (_req, res) => {
     threshold: config.CIRCUIT_BREAKER_THRESHOLD,
     cooldownSeconds: config.CIRCUIT_BREAKER_COOLDOWN,
   });
+});
+
+router.get('/active-requests', (_req, res) => {
+  const requests = getActiveRequests().map((r) => ({
+    ...r,
+    elapsedMs: Date.now() - r.startTime,
+  }));
+  res.json(requests);
 });
 
 // ── Accounts ─────────────────────────────────────���───

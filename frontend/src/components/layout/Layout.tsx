@@ -13,8 +13,13 @@ import {
   Moon,
   Sun,
   ChevronDown,
+  RefreshCw,
+  Activity,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/store/auth'
+import { useAutoRefreshStore } from '@/store/autoRefresh'
+import { api } from '@/api/client'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -54,6 +59,20 @@ export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { dark, toggle } = useDarkMode()
+  const { enabled, interval, toggle: toggleRefresh, setInterval } = useAutoRefreshStore()
+
+  const { data: activeRequests } = useQuery({
+    queryKey: ['active-requests'],
+    queryFn: api.getActiveRequests,
+    refetchInterval: enabled ? Math.max(interval, 3000) : false,
+  })
+
+  const intervalOptions: { label: string; value: number }[] = [
+    { label: '3秒', value: 3000 },
+    { label: '10秒', value: 10000 },
+    { label: '30秒', value: 30000 },
+    { label: '60秒', value: 60000 },
+  ]
 
   return (
     <div className={cn('min-h-screen bg-background', dark ? 'dark' : '')}>
@@ -148,6 +167,40 @@ export default function Layout() {
                 <span className="text-muted-foreground">管理员：</span>
                 <span className="font-medium">{username}</span>
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                {activeRequests?.length > 0 && (
+                  <div className="flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-2.5 py-1">
+                    <Activity className="h-3 w-3 animate-pulse" />
+                    <span>{activeRequests.length} 活跃</span>
+                  </div>
+                )}
+                <button
+                  onClick={toggleRefresh}
+                  className={cn(
+                    'flex items-center gap-1 rounded-full px-2.5 py-1 transition-colors',
+                    enabled
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-accent',
+                  )}
+                  title={enabled ? '关闭自动刷新' : '开启自动刷新'}
+                >
+                  <RefreshCw className={cn('h-3 w-3', enabled && 'animate-spin')} />
+                  {enabled ? '开' : '关'}
+                </button>
+                {enabled && (
+                  <select
+                    value={interval}
+                    onChange={(e) => setInterval(Number(e.target.value))}
+                    className="rounded-full bg-muted px-2 py-1 text-xs border-0 outline-none cursor-pointer hover:bg-accent"
+                  >
+                    {intervalOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           </header>

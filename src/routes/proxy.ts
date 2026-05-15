@@ -4,6 +4,7 @@ import { selectAccount, markAccountSuccess, markAccountFailure } from '../servic
 import { forwardToOllama } from '../services/ollamaClient.js';
 import { createNdjsonInterceptor, createSSEInterceptor } from '../services/streamInterceptor.js';
 import { recordUsage, recordOpenAIUsage } from '../services/usageTracker.js';
+import { registerRequest, unregisterRequest, updateRequestStreamed } from '../services/activeRequests.js';
 import { prisma } from '../db.js';
 import { config } from '../config.js';
 
@@ -29,6 +30,8 @@ export async function proxyHandler(req: Request, res: Response) {
   if (!account) {
     return res.status(503).json({ error: 'No active accounts available.' });
   }
+
+  let requestTrackId: string | null = null;
 
   let bodyStr: string | undefined;
   const rawBody: Buffer | undefined = (req as any).rawBody;
@@ -58,12 +61,23 @@ export async function proxyHandler(req: Request, res: Response) {
 
   let ttffbMs: number | null = null;
 
+  requestTrackId = registerRequest({
+    accountId: account.id,
+    accountName: account.name,
+    proxyUserId: proxyUser?.id,
+    method,
+    endpoint: path,
+    model: modelName || undefined,
+    streamed: false,
+  });
+
   let upstreamResponse;
   try {
     const forwardBody = rawBody ? rawBody : bodyStr;
     upstreamResponse = await forwardToOllama(account, method, path, req.headers, forwardBody);
     ttffbMs = Date.now() - startTime;
   } catch (err: any) {
+    if (requestTrackId) unregisterRequest(requestTrackId);
     await markAccountFailure(account.id);
     await logRequest({
       accountId: account.id,
@@ -86,6 +100,10 @@ export async function proxyHandler(req: Request, res: Response) {
   const isV1 = path.startsWith('/v1/');
   const streamed = isStream;
 
+  if (requestTrackId && streamed) {
+    updateRequestStreamed(requestTrackId);
+  }
+
   res.status(upstreamResponse.statusCode);
   for (const [key, value] of Object.entries(upstreamResponse.headers)) {
     if (value != null && key.toLowerCase() !== 'content-encoding') {
@@ -97,6 +115,7 @@ export async function proxyHandler(req: Request, res: Response) {
     const chunks: Buffer[] = [];
     upstreamResponse.body.on('data', (chunk: Buffer) => chunks.push(chunk));
     upstreamResponse.body.on('end', async () => {
+      if (requestTrackId) unregisterRequest(requestTrackId);
       const body = Buffer.concat(chunks).toString('utf8');
       let errorMsg: string | undefined;
       try {
@@ -122,6 +141,7 @@ export async function proxyHandler(req: Request, res: Response) {
       res.end(body);
     });
     upstreamResponse.body.on('error', async (err: Error) => {
+      if (requestTrackId) unregisterRequest(requestTrackId);
       await markAccountFailure(account.id);
       await logRequest({
         accountId: account.id,
@@ -157,6 +177,7 @@ export async function proxyHandler(req: Request, res: Response) {
               durationMs: Date.now() - startTime,
             });
           }
+          if (requestTrackId) unregisterRequest(requestTrackId);
           await markAccountSuccess(account.id);
           await logRequest({
             accountId: account.id,
@@ -177,7 +198,7 @@ export async function proxyHandler(req: Request, res: Response) {
 
       pipeline(upstreamResponse.body, interceptor, res, (err) => {
         if (err) {
-          // Client disconnect or pipe error
+          if (requestTrackId) unregisterRequest(requestTrackId);
         }
       });
     } else {
@@ -196,6 +217,7 @@ export async function proxyHandler(req: Request, res: Response) {
               durationMs: Date.now() - startTime,
             });
           }
+          if (requestTrackId) unregisterRequest(requestTrackId);
           await markAccountSuccess(account.id);
           await logRequest({
             accountId: account.id,
@@ -216,7 +238,7 @@ export async function proxyHandler(req: Request, res: Response) {
 
       pipeline(upstreamResponse.body, interceptor, res, (err) => {
         if (err) {
-          // Client disconnect or pipe error
+          if (requestTrackId) unregisterRequest(requestTrackId);
         }
       });
     }
@@ -284,6 +306,7 @@ export async function proxyHandler(req: Request, res: Response) {
         }
       }
 
+      if (requestTrackId) unregisterRequest(requestTrackId);
       await markAccountSuccess(account.id);
       await logRequest({
         accountId: account.id,

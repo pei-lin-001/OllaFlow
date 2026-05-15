@@ -84,6 +84,8 @@ export const api = {
 
   getCircuitBreakerConfig: () => fetcher('/circuit-breaker-config'),
 
+  getActiveRequests: () => fetcher('/active-requests'),
+
   getAdmins: () => fetcher('/admins'),
   createAdmin: (data: { username: string; password: string }) =>
     fetcher('/admins', { method: 'POST', body: JSON.stringify(data) }),

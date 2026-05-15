@@ -4,6 +4,7 @@ import { Activity, CreditCard, Users, Server, ArrowUpRight, ArrowDownRight } fro
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import { useAutoRefreshStore } from '@/store/autoRefresh'
 import { formatTokens } from '@/lib/utils'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -36,17 +37,21 @@ type PieMode = 'requests' | 'tokens'
 
 export default function Dashboard() {
   const [pieMode, setPieMode] = useState<PieMode>('tokens')
+  const { enabled, interval } = useAutoRefreshStore()
+  const refetchInterval = enabled ? interval : false
 
-  const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: api.getDashboard })
+  const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: api.getDashboard, refetchInterval })
 
   const { data: aggData } = useQuery({
     queryKey: ['usage-aggregate', 'day'],
     queryFn: () => api.getUsageAggregate({ period: 'day' }),
+    refetchInterval,
   })
 
   const { data: byModelData } = useQuery({
     queryKey: ['usage-by-model'],
     queryFn: () => api.getUsageByModel(),
+    refetchInterval,
   })
 
   const chartData = (aggData || []).slice(-7).map((a: any) => ({

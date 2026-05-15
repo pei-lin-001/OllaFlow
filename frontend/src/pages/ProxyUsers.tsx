@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import { useAutoRefreshStore } from '@/store/autoRefresh'
 import { toast } from 'sonner'
 
 interface ProxyUser {
@@ -27,8 +28,10 @@ export default function ProxyUsers() {
   const [editing, setEditing] = useState<ProxyUser | null>(null)
   const [form, setForm] = useState({ name: '', apiKey: '', isActive: true, rateLimit: '' })
   const [copied, setCopied] = useState<number | null>(null)
+  const { enabled, interval } = useAutoRefreshStore()
+  const refetchInterval = enabled ? interval : false
 
-  const { data, isLoading } = useQuery({ queryKey: ['proxy-users'], queryFn: api.getProxyUsers })
+  const { data, isLoading } = useQuery({ queryKey: ['proxy-users'], queryFn: api.getProxyUsers, refetchInterval })
 
   const create = useMutation({
     mutationFn: api.createProxyUser,
