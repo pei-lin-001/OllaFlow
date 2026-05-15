@@ -21,16 +21,17 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "socks-proxy-agent": "^10.0.0",
     "undici": "^6.19.8",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@prisma/client": "^5.19.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.16.10",
     "prisma": "^5.19.1",
-    "@prisma/client": "^5.19.1",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2"
   }

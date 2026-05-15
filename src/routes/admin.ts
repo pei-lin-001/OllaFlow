@@ -105,7 +105,13 @@ router.get('/accounts', async (_req, res) => {
 const accountSchema = z.object({
   name: z.string().min(1).max(100),
   apiKey: z.string().min(1),
-  proxyUrl: z.preprocess((v) => (v === '' || v === null || v === undefined) ? null : v, z.string().url().nullable().optional()),
+  proxyUrl: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined) ? null : v,
+    z.string().regex(
+      new RegExp('^((https?|socks[45h]?):\\/\\/).+', 'i'),
+      '代理 URL 必须以 http://、https://、socks5:// 等协议开头'
+    ).nullable().optional(),
+  ),
   proxyAuth: z.preprocess((v) => (v === '' || v === null || v === undefined) ? null : v, z.string().nullable().optional()),
   isActive: z.boolean().default(true),
   weight: z.number().int().min(1).max(100).default(1),

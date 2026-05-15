@@ -190,11 +190,11 @@ export default function Accounts() {
                   <Input type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} required={!editing} />
                 </div>
                 <div className="space-y-2">
-                  <Label>HTTP 代理 URL</Label>
-                  <Input value={form.proxyUrl} onChange={(e) => setForm({ ...form, proxyUrl: e.target.value })} placeholder="http://user:pass@proxy:8080" />
+                  <Label>代理 URL</Label>
+                  <Input value={form.proxyUrl} onChange={(e) => setForm({ ...form, proxyUrl: e.target.value })} placeholder="http://host:port 或 socks5://host:port" />
                 </div>
                 <div className="space-y-2">
-                  <Label>代理认证（用户名:密码）</Label>
+                  <Label>代理认证（用户名:密码，SOCKS5 同样适用）</Label>
                   <Input value={form.proxyAuth} onChange={(e) => setForm({ ...form, proxyAuth: e.target.value })} placeholder="username:password" />
                 </div>
                 <div className="flex items-center gap-4">

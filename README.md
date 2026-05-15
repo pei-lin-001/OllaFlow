@@ -20,7 +20,7 @@
 ## 功能特性
 
 - **🔄 多账号轮询** — 支持多个 Ollama Cloud 账号自动轮询分配，单账号失败自动切换，3 次失败自动禁用
-- **🌐 HTTP 代理** — 每个账号可独立配置 HTTP 代理，支持代理认证（用户名:密码）
+- **🌐 多协议代理** — 每个账号可独立配置 HTTP/HTTPS/SOCKS5 代理，支持代理认证（用户名:密码），自动识别协议
 - **🔐 API Key 加密** — AES-256-GCM 加密存储所有 Ollama Cloud API Key
 - **📊 用量统计** — 实时统计 Token 用量、请求数、模型分布，支持按小时/天聚合
 - **📝 请求日志** — 完整记录每个代理请求，支持按状态码、方法筛选，可导出 CSV
@@ -226,7 +226,22 @@ OLLAMA_HOST=http://localhost:6478 OLLAMA_API_KEY=YOUR_PROXY_KEY ollama run gpt-o
 
 ## 技术栈
 
-**后端：** Node.js 20+ · TypeScript · Express · Prisma (SQLite) · undici
+**后端：** Node.js 20+ · TypeScript · Express · Prisma (SQLite) · undici · socks-proxy-agent
+
+### 代理类型
+
+OllaFlow 支持为每个 Ollama Cloud 账号配置独立的代理，根据 URL 协议前缀自动选择代理方式：
+
+| URL 格式 | 代理类型 | 说明 |
+|-----------|----------|------|
+| `http://host:port` | HTTP 代理 | 标准 HTTP CONNECT 代理 |
+| `https://host:port` | HTTPS 代理 | TLS 加密的 HTTP 代理 |
+| `socks5://host:port` | SOCKS5 代理 | SOCKS5 协议，本地 DNS 解析 |
+| `socks5h://host:port` | SOCKS5 代理 | SOCKS5 协议，远程 DNS 解析 |
+| `socks4://host:port` | SOCKS4 代理 | SOCKS4 协议 |
+| `socks4a://host:port` | SOCKS4A 代理 | SOCKS4A 协议，远程 DNS 解析 |
+
+代理认证（用户名:密码）同时支持 HTTP 和 SOCKS5 协议。SOCKS5 认证在握手阶段完成，HTTP 认证通过 `Proxy-Authorization` 头传递。
 
 **前端：** React 18 · Vite 5 · Tailwind CSS 3 · shadcn/ui · TanStack Query · Recharts
 
