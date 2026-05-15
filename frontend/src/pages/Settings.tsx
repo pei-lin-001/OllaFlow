@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { api } from '@/api/client'
+import { fmtDate } from '@/lib/utils'
 import { toast } from 'sonner'
 
 export default function Settings() {
@@ -123,7 +124,7 @@ export default function Settings() {
                       {admin.username === currentUsername && (
                         <span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">当前</span>
                       )}
-                      <div className="text-xs text-muted-foreground">{new Date(admin.createdAt).toLocaleString('zh-CN')}</div>
+                      <div className="text-xs text-muted-foreground">{fmtDate(admin.createdAt, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
                     </div>
                     {admin.username !== currentUsername && (
                       <Button variant="ghost" size="sm" onClick={() => deleteAdmin.mutate(admin.id)}>

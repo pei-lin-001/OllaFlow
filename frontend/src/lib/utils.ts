@@ -18,3 +18,15 @@ export function formatYAxisKMB(v: number): string {
   if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
   return String(v)
 }
+
+const dtfCache = new Map<string, Intl.DateTimeFormat>()
+
+export function fmtDate(date: string | number | Date, options: Intl.DateTimeFormatOptions): string {
+  const key = JSON.stringify(options)
+  let dtf = dtfCache.get(key)
+  if (!dtf) {
+    dtf = new Intl.DateTimeFormat('zh-CN', options)
+    dtfCache.set(key, dtf)
+  }
+  return dtf.format(new Date(date))
+}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,7 +7,7 @@ import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
 import { useAutoRefreshStore } from '@/store/autoRefresh'
-import { formatTokens, formatYAxisKMB } from '@/lib/utils'
+import { formatTokens, formatYAxisKMB, fmtDate } from '@/lib/utils'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area,
@@ -20,6 +20,61 @@ function formatTps(tps: number | null | undefined): string {
   if (tps >= 100) return `${Math.round(tps)} t/s`
   return `${tps.toFixed(1)} t/s`
 }
+
+const RequestTrend = memo(function RequestTrend({ data, period }: { data: any[]; period: string }) {
+  const chartData = useMemo(() => (data || []).map((a: any) => ({
+    label: a.periodStart,
+    requests: a.requestCount,
+    prompt: a.promptTokens,
+    completion: a.completionTokens,
+  })), [data])
+
+  const formatXAxis = (value: string) => {
+    if (period === 'hour') return fmtDate(value, { hour: '2-digit', minute: '2-digit', hour12: false })
+    return fmtDate(value, { month: 'short', day: 'numeric' })
+  }
+
+  const formatTooltipLabel = (v: string) => {
+    if (period === 'hour') return fmtDate(v, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return fmtDate(v, { month: 'long', day: 'numeric' })
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <AreaChart data={chartData}>
+        <defs>
+          <linearGradient id="usage-req" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
+            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
+        <XAxis dataKey="label" fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatXAxis} interval={period === 'hour' ? 2 : 0} />
+        <YAxis fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatYAxisKMB} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={formatTooltipLabel} />
+        <Area type="monotone" dataKey="requests" stroke="#4f46e5" fill="url(#usage-req)" strokeWidth={2} isAnimationActive={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+})
+
+const TokenDist = memo(function TokenDist({ data }: { data: any[] }) {
+  const barData = useMemo(() => (data || [])
+    .map((m: any) => ({ name: m.model, tokens: m.totalTokens, requests: m.requestCount }))
+    .sort((a: any, b: any) => b.tokens - a.tokens), [data])
+
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={barData} layout="vertical">
+        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
+        <XAxis type="number" fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatYAxisKMB} />
+        <YAxis type="category" dataKey="name" width={100} fontSize={11} stroke="currentColor" opacity={0.5} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatTokens(v), '']} />
+        <Bar dataKey="tokens" fill="#4f46e5" radius={[0, 4, 4, 0]} isAnimationActive={false} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+})
 
 export default function Usage() {
   const [period, setPeriod] = useState('day')
@@ -55,27 +110,6 @@ export default function Usage() {
     }),
     {},
   ), [aggData])
-
-  const formatXAxis = useMemo(() => {
-    return (value: string) => {
-      const d = new Date(value)
-      if (period === 'hour') {
-        return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-      }
-      return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
-    }
-  }, [period])
-
-  const chartData = useMemo(() => (aggData || []).map((a: any) => ({
-    label: a.periodStart,
-    requests: a.requestCount,
-    prompt: a.promptTokens,
-    completion: a.completionTokens,
-  })), [aggData])
-
-  const barData = useMemo(() => (byModelData || [])
-    .map((m: any) => ({ name: m.model, tokens: m.totalTokens, requests: m.requestCount }))
-    .sort((a: any, b: any) => b.tokens - a.tokens), [byModelData])
 
   function exportCSV() {
     const rows = (usageRecords || []).map((r: any) => {
@@ -159,26 +193,7 @@ export default function Usage() {
           </CardHeader>
           <CardContent>
             {aggLoading ? <Skeleton className="h-60" /> : (
-              <ResponsiveContainer width="100%" height={240}>
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorReq" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
-                  <XAxis dataKey="label" fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatXAxis} interval={period === 'hour' ? 2 : 0} />
-                  <YAxis fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatYAxisKMB} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(v: string) => {
-                    const d = new Date(v)
-                    return period === 'hour'
-                      ? d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                      : d.toLocaleDateString('zh-CN')
-                  }} />
-                  <Area type="monotone" dataKey="requests" stroke="#4f46e5" fill="url(#colorReq)" strokeWidth={2} isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
+              <RequestTrend data={aggData || []} period={period} />
             )}
           </CardContent>
         </Card>
@@ -189,15 +204,7 @@ export default function Usage() {
           </CardHeader>
           <CardContent>
             {aggLoading ? <Skeleton className="h-60" /> : (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={barData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
-                  <XAxis type="number" fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatYAxisKMB} />
-                  <YAxis type="category" dataKey="name" width={100} fontSize={11} stroke="currentColor" opacity={0.5} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatTokens(v), '']} />
-                  <Bar dataKey="tokens" fill="#4f46e5" radius={[0, 4, 4, 0]} isAnimationActive={false} />
-                </BarChart>
-              </ResponsiveContainer>
+              <TokenDist data={byModelData || []} />
             )}
           </CardContent>
         </Card>
@@ -268,7 +275,7 @@ export default function Usage() {
                     : null
                   return (
                     <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-3 px-4">{new Date(r.createdAt).toLocaleString('zh-CN')}</td>
+                      <td className="py-3 px-4">{fmtDate(r.createdAt, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
                       <td className="py-3 px-4 font-mono text-xs">{r.model}</td>
                       <td className="py-3 px-4 text-muted-foreground">{r.endpoint}</td>
                       <td className="py-3 px-4">

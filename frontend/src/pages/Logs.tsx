@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import { fmtDate } from '@/lib/utils'
 
 function formatDuration(ms: number | null | undefined): string {
   if (ms == null) return '—'
@@ -150,7 +151,7 @@ export default function Logs() {
                         <td className="py-3 px-4">
                           {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </td>
-                        <td className="py-3 px-4">{new Date(r.createdAt).toLocaleString('zh-CN')}</td>
+                        <td className="py-3 px-4">{fmtDate(r.createdAt, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
                         <td className="py-3 px-4 font-mono text-xs">{r.method}</td>
                         <td className="py-3 px-4 text-muted-foreground">{r.endpoint}</td>
                         <td className="py-3 px-4 font-mono text-xs">{r.model ?? '—'}</td>

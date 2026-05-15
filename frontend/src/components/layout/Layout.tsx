@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -31,6 +31,15 @@ const navItems = [
   { path: '/admin/settings', label: '系统设置', icon: Settings },
 ]
 
+const pagePreloaders: Record<string, () => void> = {
+  '/admin':          () => import('@/pages/Dashboard'),
+  '/admin/accounts': () => import('@/pages/Accounts'),
+  '/admin/users':    () => import('@/pages/ProxyUsers'),
+  '/admin/usage':    () => import('@/pages/Usage'),
+  '/admin/logs':     () => import('@/pages/Logs'),
+  '/admin/settings': () => import('@/pages/Settings'),
+}
+
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -39,16 +48,18 @@ function useDarkMode() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
 
-  const toggle = () => {
-    const next = !dark
-    setDark(next)
-    localStorage.setItem('theme', next ? 'dark' : 'light')
-    if (next) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }
+  const toggle = useCallback(() => {
+    setDark(prev => {
+      const next = !prev
+      localStorage.setItem('theme', next ? 'dark' : 'light')
+      if (next) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+      return next
+    })
+  }, [])
 
   return { dark, toggle }
 }
@@ -107,6 +118,7 @@ export default function Layout() {
                     key={item.path}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
+                    onMouseEnter={() => pagePreloaders[item.path]?.()}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                       active
