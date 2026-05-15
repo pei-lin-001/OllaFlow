@@ -14,6 +14,7 @@ export interface DashboardData {
   todayRequests: number
   totalAccounts: number
   totalProxyUsers: number
+  tokenTrend: number
 }
 
 // 熔断器配置

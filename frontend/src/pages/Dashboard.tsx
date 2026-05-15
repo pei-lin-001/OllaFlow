@@ -31,10 +31,10 @@ function StatCard({ title, value, icon: Icon, trend }: { title: string; value: s
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
-        {trend !== undefined && (
+        {trend !== undefined && trend !== 0 && (
           <p className={`text-xs flex items-center mt-1 ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {trend >= 0 ? <ArrowUpRight className="h-3 w-3 mr-0.5" /> : <ArrowDownRight className="h-3 w-3 mr-0.5" />}
-            {Math.abs(trend)}%
+            较昨日 {Math.abs(trend)}%
           </p>
         )}
       </CardContent>
@@ -180,8 +180,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="总请求数" value={data?.totalRequests?.toLocaleString() || '0'} icon={Activity} trend={12} />
-        <StatCard title="今日 Token" value={formatTokens(data?.todayTokens)} icon={CreditCard} trend={8} />
+        <StatCard title="总请求数" value={data?.totalRequests?.toLocaleString() || '0'} icon={Activity}  />
+        <StatCard title="今日 Token" value={formatTokens(data?.todayTokens)} icon={CreditCard}  trend={data?.tokenTrend} />
         <StatCard title="活跃账号" value={data?.totalAccounts?.toString() || '0'} icon={Server} />
         <StatCard title="代理用户" value={data?.totalProxyUsers?.toString() || '0'} icon={Users} />
       </div>

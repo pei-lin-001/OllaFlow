@@ -46,11 +46,16 @@ router.use(adminAuthMiddleware);
 router.get('/dashboard', async (_req, res) => {
   const now = new Date();
   const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
 
-  const [totalRequests, todayAgg, totalAccounts, totalProxyUsers] = await Promise.all([
+  const [totalRequests, todayAgg, yesterdayAgg, totalAccounts, totalProxyUsers] = await Promise.all([
     prisma.usageRecord.count(),
     prisma.usageAggregate.findMany({
-      where: { period: 'day', periodStart: dayStart },
+      where: { period: 'day', periodStart: { gte: dayStart, lt: tomorrowStart } },
+    }),
+    prisma.usageAggregate.findMany({
+      where: { period: 'day', periodStart: { gte: yesterdayStart, lt: dayStart } },
     }),
     prisma.account.count(),
     prisma.proxyUser.count(),
@@ -58,11 +63,17 @@ router.get('/dashboard', async (_req, res) => {
 
   const todayTokens = todayAgg.reduce((sum, a) => sum + a.totalTokens, 0);
   const todayRequests = todayAgg.reduce((sum, a) => sum + a.requestCount, 0);
+  const yesterdayTokens = yesterdayAgg.reduce((sum, a) => sum + a.totalTokens, 0);
+
+  const tokenTrend = yesterdayTokens > 0
+    ? Math.round(((todayTokens - yesterdayTokens) / yesterdayTokens) * 100)
+    : (todayTokens > 0 ? 100 : 0);
 
   res.json({
     totalRequests,
     todayTokens,
     todayRequests,
+    tokenTrend,
     totalAccounts,
     totalProxyUsers,
   });
