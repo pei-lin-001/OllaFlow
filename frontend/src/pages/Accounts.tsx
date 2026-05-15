@@ -10,20 +10,9 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import type { Account, AccountUpdatePayload } from '@/api/types'
 import { useAutoRefreshStore } from '@/store/autoRefresh'
 import { toast } from 'sonner'
-
-interface Account {
-  id: number
-  name: string
-  proxyUrl: string | null
-  isActive: boolean
-  weight: number
-  failCount: number
-  disabledAt: string | null
-  lastUsedAt: string | null
-  createdAt: string
-}
 
 function CooldownTimer({ disabledAt, cooldownSeconds }: { disabledAt: string; cooldownSeconds: number }) {
   const [remaining, setRemaining] = useState(0)
@@ -78,11 +67,11 @@ export default function Accounts() {
       resetForm()
       toast.success('账号已创建')
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   const update = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => api.updateAccount(id, data),
+    mutationFn: ({ id, data }: { id: number; data: AccountUpdatePayload }) => api.updateAccount(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] })
       setDialogOpen(false)
@@ -90,7 +79,7 @@ export default function Accounts() {
       resetForm()
       toast.success('账号已更新')
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   const remove = useMutation({
@@ -99,7 +88,7 @@ export default function Accounts() {
       qc.invalidateQueries({ queryKey: ['accounts'] })
       toast.success('账号已删除')
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   function resetForm() {
@@ -127,14 +116,14 @@ export default function Accounts() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const payload: any = { ...form }
+    const payload: AccountUpdatePayload = { ...form }
     if (!payload.apiKey && editing) delete payload.apiKey
     payload.proxyUrl = payload.proxyUrl || null
     payload.proxyAuth = payload.proxyAuth || null
     if (editing) {
       update.mutate({ id: editing.id, data: payload })
     } else {
-      create.mutate(payload)
+      create.mutate(payload as any)
     }
   }
 
@@ -144,8 +133,8 @@ export default function Accounts() {
       const res = await api.testAccount(id)
       toast[res.success ? 'success' : 'error'](res.success ? '连接正常' : `失败：${res.error || res.statusCode}`)
       qc.invalidateQueries({ queryKey: ['accounts'] })
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : String(e))
     } finally {
       setTesting(null)
     }
@@ -157,8 +146,8 @@ export default function Accounts() {
       await api.reactivateAccount(id)
       toast.success('账号已重新激活')
       qc.invalidateQueries({ queryKey: ['accounts'] })
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : String(e))
     } finally {
       setReactivating(null)
     }
@@ -167,7 +156,7 @@ export default function Accounts() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-8 w-32" />
         <Skeleton className="h-96" />
       </div>
     )
@@ -188,7 +177,7 @@ export default function Accounts() {
               <DialogHeader>
                 <DialogTitle>{editing ? '编辑账号' : '添加账号'}</DialogTitle>
                 <DialogDescription>
-                  {editing ? '修改 Ollama Cloud 账号设置。' : '添加新的 Ollama Cloud 账号到代理池。'}
+                  {editing ? '修改 Ollama Cloud 账号配置。' : '添加一个新的 Ollama Cloud 账号。'}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -197,21 +186,21 @@ export default function Accounts() {
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Ollama API Key{editing && '（留空保持不变）'}</Label>
-                  <Input type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} {...(!editing ? { required: true } : {})} />
+                  <Label>API Key{editing ? '（留空保持不变）' : ' *'}</Label>
+                  <Input type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} required={!editing} />
                 </div>
                 <div className="space-y-2">
-                  <Label>代理地址</Label>
-                  <Input value={form.proxyUrl} onChange={(e) => setForm({ ...form, proxyUrl: e.target.value })} placeholder="http://proxy:port" />
+                  <Label>HTTP 代理 URL</Label>
+                  <Input value={form.proxyUrl} onChange={(e) => setForm({ ...form, proxyUrl: e.target.value })} placeholder="http://user:pass@proxy:8080" />
                 </div>
                 <div className="space-y-2">
                   <Label>代理认证（用户名:密码）</Label>
-                  <Input type="password" value={form.proxyAuth} onChange={(e) => setForm({ ...form, proxyAuth: e.target.value })} placeholder="username:password" />
+                  <Input value={form.proxyAuth} onChange={(e) => setForm({ ...form, proxyAuth: e.target.value })} placeholder="username:password" />
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="space-y-2 flex-1">
-                    <Label>权重（1-100）</Label>
-                    <Input type="number" min={1} max={100} value={form.weight} onChange={(e) => setForm({ ...form, weight: parseInt(e.target.value) || 1 })} />
+                  <div className="space-y-2">
+                    <Label>权重</Label>
+                    <Input type="number" min={1} max={100} value={form.weight} onChange={(e) => setForm({ ...form, weight: parseInt(e.target.value) || 1 })} className="w-24" />
                   </div>
                   <div className="flex items-center gap-2 pt-6">
                     <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
@@ -243,7 +232,7 @@ export default function Accounts() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {(data || []).map((acc: Account) => {
+                {(data || []).map((acc) => {
                   const isCircuitBroken = !acc.isActive && acc.failCount >= (cbConfig?.threshold ?? 3)
                   return (
                     <tr key={acc.id} className={`hover:bg-muted/30 transition-colors${isCircuitBroken ? ' bg-destructive/5' : ''}`}>

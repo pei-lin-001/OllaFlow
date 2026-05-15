@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import type { UsageAggregate, UsageByModel, UsageRecord } from '@/api/types'
 import { useAutoRefreshStore } from '@/store/autoRefresh'
 import { formatTokens, formatYAxisKMB, fmtDate } from '@/lib/utils'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+ XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area,
 } from 'recharts'
 
@@ -21,8 +22,15 @@ function formatTps(tps: number | null | undefined): string {
   return `${tps.toFixed(1)} t/s`
 }
 
-const RequestTrend = memo(function RequestTrend({ data, period }: { data: any[]; period: string }) {
-  const chartData = useMemo(() => (data || []).map((a: any) => ({
+interface TrendDataPoint {
+  label: string
+  requests: number
+  prompt: number
+  completion: number
+}
+
+const RequestTrend = memo(function RequestTrend({ data, period }: { data: UsageAggregate[]; period: string }) {
+  const chartData = useMemo<TrendDataPoint[]>(() => (data || []).map((a) => ({
     label: a.periodStart,
     requests: a.requestCount,
     prompt: a.promptTokens,
@@ -58,23 +66,14 @@ const RequestTrend = memo(function RequestTrend({ data, period }: { data: any[];
   )
 })
 
-const TokenDist = memo(function TokenDist({ data }: { data: any[] }) {
-  const barData = useMemo(() => (data || [])
-    .map((m: any) => ({ name: m.model, tokens: m.totalTokens, requests: m.requestCount }))
-    .sort((a: any, b: any) => b.tokens - a.tokens), [data])
 
-  return (
-    <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={barData} layout="vertical">
-        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
-        <XAxis type="number" fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatYAxisKMB} />
-        <YAxis type="category" dataKey="name" width={100} fontSize={11} stroke="currentColor" opacity={0.5} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatTokens(v), '']} />
-        <Bar dataKey="tokens" fill="#4f46e5" radius={[0, 4, 4, 0]} isAnimationActive={false} />
-      </BarChart>
-    </ResponsiveContainer>
-  )
-})
+
+interface TotalsAccumulator {
+  requests?: number
+  prompt?: number
+  completion?: number
+  total?: number
+}
 
 export default function Usage() {
   const [period, setPeriod] = useState('day')
@@ -101,8 +100,8 @@ export default function Usage() {
     refetchInterval,
   })
 
-  const totals = useMemo(() => (aggData || []).reduce(
-    (acc: any, a: any) => ({
+  const totals = useMemo<TotalsAccumulator>(() => (aggData || []).reduce(
+    (acc: TotalsAccumulator, a: UsageAggregate) => ({
       requests: (acc.requests || 0) + a.requestCount,
       prompt: (acc.prompt || 0) + a.promptTokens,
       completion: (acc.completion || 0) + a.completionTokens,
@@ -112,22 +111,24 @@ export default function Usage() {
   ), [aggData])
 
   function exportCSV() {
-    const rows = (usageRecords || []).map((r: any) => {
+    const rows: UsageRecord[] = usageRecords || []
+    const headers = ['时间', '模型', '端点', '状态码', '输入Token', '输出Token', '输出速度(t/s)', '流式']
+    const csvRows = rows.map((r) => {
       const tps = r.evalCount && r.evalDuration
         ? Math.round((r.evalCount / (r.evalDuration / 1e9)) * 10) / 10
-        : null
-      return {
-        时间: new Date(r.createdAt).toISOString(),
-        模型: r.model,
-        端点: r.endpoint,
-        输入Token: r.promptEvalCount,
-        输出Token: r.evalCount,
-        输出速度_tps: tps,
-      }
+        : ''
+      return [
+        new Date(r.createdAt).toISOString(),
+        r.model,
+        r.endpoint,
+        r.statusCode,
+        r.promptEvalCount ?? '',
+        r.evalCount ?? '',
+        tps,
+        r.streamed ? '是' : '否',
+      ].map((v) => JSON.stringify(v)).join(',')
     })
-    if (!rows.length) return
-    const headers = Object.keys(rows[0])
-    const csv = [headers.join(','), ...rows.map((r: any) => headers.map((h) => JSON.stringify(r[h as keyof typeof r] ?? '')).join(','))].join('\n')
+    const csv = [headers.join(','), ...csvRows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -145,8 +146,8 @@ export default function Usage() {
             <option value="hour">按小时</option>
             <option value="day">按天</option>
           </Select>
-          <Button variant="outline" onClick={exportCSV}>
-            <Download className="h-4 w-4 mr-1" /> 导出
+          <Button variant="outline" size="sm" onClick={exportCSV}>
+            <Download className="h-3.5 w-3.5 mr-1" /> 导出 CSV
           </Button>
         </div>
       </div>
@@ -154,10 +155,10 @@ export default function Usage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">请求数</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">总请求数</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.requests?.toLocaleString() || '0'}</div>
+            <div className="text-2xl font-bold">{totals.requests?.toLocaleString() ?? '0'}</div>
           </CardContent>
         </Card>
         <Card>
@@ -165,7 +166,7 @@ export default function Usage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">输入 Token</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatTokens(totals.prompt)}</div>
+            <div className="text-2xl font-bold">{formatTokens(totals.prompt ?? 0)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -173,7 +174,7 @@ export default function Usage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">输出 Token</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatTokens(totals.completion)}</div>
+            <div className="text-2xl font-bold">{formatTokens(totals.completion ?? 0)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -181,36 +182,25 @@ export default function Usage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">总 Token</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatTokens(totals.total)}</div>
+            <div className="text-2xl font-bold">{formatTokens(totals.total ?? 0)}</div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {aggLoading ? (
+        <Skeleton className="h-72" />
+      ) : (
         <Card>
           <CardHeader>
             <CardTitle>请求趋势</CardTitle>
           </CardHeader>
           <CardContent>
-            {aggLoading ? <Skeleton className="h-60" /> : (
-              <RequestTrend data={aggData || []} period={period} />
-            )}
+            <RequestTrend data={aggData || []} period={period} />
           </CardContent>
         </Card>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Token 消耗分布</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {aggLoading ? <Skeleton className="h-60" /> : (
-              <TokenDist data={byModelData || []} />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {(byModelData?.length > 0) && (
+      {(byModelData && byModelData.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle>模型消耗明细</CardTitle>
@@ -229,7 +219,7 @@ export default function Usage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {(byModelData || []).map((m: any) => (
+                  {(byModelData || []).map((m: UsageByModel) => (
                     <tr key={m.model} className="hover:bg-muted/30 transition-colors">
                       <td className="py-3 px-4 font-mono text-xs">{m.model}</td>
                       <td className="py-3 px-4 text-right">{m.requestCount.toLocaleString()}</td>
@@ -269,7 +259,7 @@ export default function Usage() {
                   <tr><td colSpan={7} className="py-8"><Skeleton className="h-32" /></td></tr>
                 ) : (usageRecords || []).length === 0 ? (
                   <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">暂无记录</td></tr>
-                ) : (usageRecords || []).map((r: any) => {
+                ) : (usageRecords || []).map((r: UsageRecord) => {
                   const tps = r.evalCount && r.evalDuration
                     ? Math.round((r.evalCount / (r.evalDuration / 1e9)) * 10) / 10
                     : null

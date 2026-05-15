@@ -181,10 +181,10 @@ export default function Layout() {
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
               </div>
               <div className="flex items-center gap-2 text-xs">
-                {activeRequests?.length > 0 && (
+                {(activeRequests?.length ?? 0) > 0 && (
                   <div className="flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-2.5 py-1">
                     <Activity className="h-3 w-3 animate-pulse" />
-                    <span>{activeRequests.length} 活跃</span>
+                    <span>{activeRequests?.length ?? 0} 活跃</span>
                   </div>
                 )}
                 <button

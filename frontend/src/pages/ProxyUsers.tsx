@@ -10,17 +10,9 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import type { ProxyUser, ProxyUserUpdatePayload } from '@/api/types'
 import { useAutoRefreshStore } from '@/store/autoRefresh'
 import { toast } from 'sonner'
-
-interface ProxyUser {
-  id: number
-  name: string
-  apiKey: string
-  isActive: boolean
-  rateLimit: number | null
-  createdAt: string
-}
 
 export default function ProxyUsers() {
   const qc = useQueryClient()
@@ -41,11 +33,11 @@ export default function ProxyUsers() {
       resetForm()
       toast.success('代理用户已创建')
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   const update = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => api.updateProxyUser(id, data),
+    mutationFn: ({ id, data }: { id: number; data: ProxyUserUpdatePayload }) => api.updateProxyUser(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['proxy-users'] })
       setDialogOpen(false)
@@ -53,7 +45,7 @@ export default function ProxyUsers() {
       resetForm()
       toast.success('代理用户已更新')
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   const remove = useMutation({
@@ -62,7 +54,7 @@ export default function ProxyUsers() {
       qc.invalidateQueries({ queryKey: ['proxy-users'] })
       toast.success('代理用户已删除')
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   function resetForm() {
@@ -88,7 +80,7 @@ export default function ProxyUsers() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const payload: any = {
+    const payload: ProxyUserUpdatePayload = {
       name: form.name,
       isActive: form.isActive,
       rateLimit: form.rateLimit ? parseInt(form.rateLimit) : null,
@@ -97,7 +89,7 @@ export default function ProxyUsers() {
     if (editing) {
       update.mutate({ id: editing.id, data: payload })
     } else {
-      create.mutate(payload)
+      create.mutate(payload as any)
     }
   }
 
@@ -176,7 +168,7 @@ export default function ProxyUsers() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {(data || []).map((u: ProxyUser) => (
+                {(data || []).map((u) => (
                   <tr key={u.id} className="hover:bg-muted/30 transition-colors">
                     <td className="py-3 px-4 font-medium">{u.name}</td>
                     <td className="py-3 px-4">

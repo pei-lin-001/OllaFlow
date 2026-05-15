@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { FileText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import type { RequestLog } from '@/api/types'
 import { fmtDate } from '@/lib/utils'
 
 function formatDuration(ms: number | null | undefined): string {
@@ -21,13 +22,13 @@ export default function Logs() {
   const [method, setMethod] = useState('')
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
 
-  const { data, isLoading, isPlaceholderData } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['logs', page, pageSize, statusCode, method],
     queryFn: () => api.getLogs({ page: String(page), pageSize: String(pageSize), ...(statusCode ? { statusCode } : {}), ...(method ? { method } : {}) }),
     placeholderData: keepPreviousData,
   })
 
-  const logs = data?.logs || []
+  const logs: RequestLog[] = data?.logs || []
   const total = data?.total || 0
   const totalPages = Math.ceil(total / pageSize)
 
@@ -42,8 +43,8 @@ export default function Logs() {
 
   function expandAllErrors() {
     const errorIds = new Set<number>()
-    logs.forEach((r: any) => {
-      if (r.statusCode >= 400 || r.error) errorIds.add(r.id)
+    logs.forEach((r) => {
+      if (r.statusCode != null && r.statusCode >= 400 || r.error) errorIds.add(r.id)
     })
     setExpandedIds(errorIds)
   }
@@ -55,7 +56,7 @@ export default function Logs() {
   function exportCSV() {
     if (!logs.length) return
     const headers = ['时间', '方法', '端点', '状态码', '模型', '耗时(ms)', '首字延迟(ms)', '请求体', '响应体', '错误']
-    const rows = logs.map((r: any) => [
+    const rows = logs.map((r) => [
       new Date(r.createdAt).toISOString(),
       r.method,
       r.endpoint,
@@ -67,7 +68,7 @@ export default function Logs() {
       (r.responseBody ?? '').slice(0, 500),
       r.error ?? '',
     ])
-    const csv = [headers.join(','), ...rows.map((row: string[]) => row.map((c) => JSON.stringify(c)).join(','))].join('\n')
+    const csv = [headers.join(','), ...rows.map((row) => row.map((c) => JSON.stringify(c)).join(','))].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -127,25 +128,24 @@ export default function Logs() {
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">模型</th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">状态</th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">耗时</th>
-                  <th className="py-3 px-4 text-left font-medium text-muted-foreground">首字延迟</th>
+                  <th className="py-3 px-4 text-left font-medium text-muted-foreground">TTFB</th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground">错误</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {isLoading && !isPlaceholderData ? (
+                {isLoading ? (
                   <tr><td colSpan={9} className="py-8"><Skeleton className="h-32" /></td></tr>
                 ) : logs.length === 0 ? (
                   <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">
-                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" /> 暂无日志记录。
+                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    暂无日志记录。
                   </td></tr>
-                ) : logs.map((r: any) => {
-                  const isError = r.statusCode >= 400 || !!r.error
+                ) : logs.map((r) => {
                   const isOpen = expandedIds.has(r.id)
                   return (
-                    <>
+                    <React.Fragment key={r.id}>
                       <tr
-                        key={`row-${r.id}`}
-                        className={`hover:bg-muted/30 transition-colors cursor-pointer ${isError ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}
+                        className={`hover:bg-muted/30 transition-colors cursor-pointer${r.statusCode != null && r.statusCode >= 400 ? ' bg-red-50/50 dark:bg-red-900/5' : ''}`}
                         onClick={() => toggleExpanded(r.id)}
                       >
                         <td className="py-3 px-4">
@@ -157,8 +157,8 @@ export default function Logs() {
                         <td className="py-3 px-4 font-mono text-xs">{r.model ?? '—'}</td>
                         <td className="py-3 px-4">
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                            r.statusCode < 300 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                            r.statusCode < 500 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                            r.statusCode != null && r.statusCode < 300 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            r.statusCode != null && r.statusCode < 500 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                             'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                           }`}>
                             {r.statusCode}
@@ -171,7 +171,7 @@ export default function Logs() {
                         </td>
                       </tr>
                       {isOpen && (
-                        <tr key={`detail-${r.id}`}>
+                        <tr>
                           <td colSpan={9} className="p-4 bg-muted/20">
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-3">
@@ -203,7 +203,7 @@ export default function Logs() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   )
                 })}
               </tbody>

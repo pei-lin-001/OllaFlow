@@ -4,12 +4,14 @@ import { Activity, CreditCard, Users, Server, ArrowUpRight, ArrowDownRight } fro
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
+import type { UsageAggregate, UsageByModel } from '@/api/types'
 import { useAutoRefreshStore } from '@/store/autoRefresh'
 import { formatTokens, fmtDate } from '@/lib/utils'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts'
+import type { LucideIcon } from 'lucide-react'
 
 const COLORS = ['#4f46e5', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444']
 const TOOLTIP_STYLE = { backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }
@@ -20,7 +22,7 @@ function formatKMB(v: number): string {
   return String(v)
 }
 
-function StatCard({ title, value, icon: Icon, trend }: { title: string; value: string; icon: any; trend?: number }) {
+function StatCard({ title, value, icon: Icon, trend }: { title: string; value: string; icon: LucideIcon; trend?: number }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -40,8 +42,14 @@ function StatCard({ title, value, icon: Icon, trend }: { title: string; value: s
   )
 }
 
-const TokenChart = memo(function TokenChart({ data }: { data: any[] }) {
-  const chartData = useMemo(() => (data || []).slice(-24).map((a: any) => ({
+interface TokenChartDataPoint {
+  label: string
+  prompt: number
+  completion: number
+}
+
+const TokenChart = memo(function TokenChart({ data }: { data: UsageAggregate[] }) {
+  const chartData = useMemo<TokenChartDataPoint[]>(() => (data || []).slice(-24).map((a) => ({
     label: fmtDate(a.periodStart, { hour: '2-digit', minute: '2-digit', hour12: false }),
     prompt: a.promptTokens,
     completion: a.completionTokens,
@@ -73,17 +81,24 @@ const TokenChart = memo(function TokenChart({ data }: { data: any[] }) {
 
 type PieMode = 'requests' | 'tokens'
 
-const ModelChart = memo(function ModelChart({ data }: { data: any[] }) {
+interface PieDataEntry {
+  name: string
+  requests: number
+  tokens: number
+  value: number
+}
+
+const ModelChart = memo(function ModelChart({ data }: { data: UsageByModel[] }) {
   const [pieMode, setPieMode] = useState<PieMode>('tokens')
 
-  const pieData = useMemo(() => (data || [])
-    .map((m: any) => ({
+  const pieData = useMemo<PieDataEntry[]>(() => (data || [])
+    .map((m) => ({
       name: m.model,
       requests: m.requestCount,
       tokens: m.totalTokens,
       value: pieMode === 'tokens' ? m.totalTokens : m.requestCount,
     }))
-    .sort((a: any, b: any) => b.value - a.value)
+    .sort((a, b) => b.value - a.value)
     .slice(0, 6), [data, pieMode])
 
   return (
@@ -91,7 +106,7 @@ const ModelChart = memo(function ModelChart({ data }: { data: any[] }) {
       <ResponsiveContainer width="100%" height={250}>
         <PieChart>
           <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value" isAnimationActive={false}>
-            {pieData.map((_: any, i: number) => (
+            {pieData.map((_, i) => (
               <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
             ))}
           </Pie>
@@ -102,7 +117,7 @@ const ModelChart = memo(function ModelChart({ data }: { data: any[] }) {
         </PieChart>
       </ResponsiveContainer>
       <div className="flex flex-wrap justify-center gap-3 mt-2">
-        {pieData.map((entry: any, i: number) => (
+        {pieData.map((entry, i) => (
           <div key={entry.name} className="flex items-center gap-1.5 text-xs">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
             <span className="text-muted-foreground">{entry.name}</span>

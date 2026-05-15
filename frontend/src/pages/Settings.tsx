@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { api } from '@/api/client'
+import type { AdminUser } from '@/api/types'
 import { fmtDate } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -26,8 +27,8 @@ export default function Settings() {
 
   const cleanup = useMutation({
     mutationFn: api.cleanup,
-    onSuccess: (data: any) => toast.success(`已清理 ${data.deleted || 0} 条过期日志记录`),
-    onError: (e: any) => toast.error(e.message),
+    onSuccess: (data) => toast.success(`已清理 ${data.deleted || 0} 条过期日志记录`),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   const changePwd = useMutation({
@@ -38,7 +39,7 @@ export default function Settings() {
       setNewPwd('')
       setConfirmPwd('')
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   const { data: admins } = useQuery({ queryKey: ['admins'], queryFn: api.getAdmins })
@@ -53,7 +54,7 @@ export default function Settings() {
       setNewAdminPwd('')
       setAddDialogOpen(false)
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   const deleteAdmin = useMutation({
@@ -62,7 +63,7 @@ export default function Settings() {
       toast.success('管理员已删除')
       qc.invalidateQueries({ queryKey: ['admins'] })
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e instanceof Error ? e.message : String(e)),
   })
 
   function handleChangePassword(e: React.FormEvent) {
@@ -117,14 +118,11 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="divide-y">
-                {(admins || []).map((admin: any) => (
+                {(admins || []).map((admin: AdminUser) => (
                   <div key={admin.id} className="flex items-center justify-between py-2.5">
                     <div>
-                      <span className="font-medium">{admin.username}</span>
-                      {admin.username === currentUsername && (
-                        <span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">当前</span>
-                      )}
-                      <div className="text-xs text-muted-foreground">{fmtDate(admin.createdAt, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                      <div className="font-medium">{admin.username}</div>
+                      <div className="text-xs text-muted-foreground">创建于 {fmtDate(admin.createdAt, { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
                     </div>
                     {admin.username !== currentUsername && (
                       <Button variant="ghost" size="sm" onClick={() => deleteAdmin.mutate(admin.id)}>
@@ -137,28 +135,28 @@ export default function Settings() {
 
               <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline"><UserPlus className="h-4 w-4 mr-1" /> 添加管理员</Button>
+                  <Button variant="outline" size="sm">
+                    <UserPlus className="h-4 w-4 mr-1" /> 添加管理员
+                  </Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <form onSubmit={(e) => { e.preventDefault(); createAdmin.mutate() }}>
-                    <DialogHeader>
-                      <DialogTitle>添加管理员</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label>用户名</Label>
-                        <Input value={newAdminUser} onChange={(e) => setNewAdminUser(e.target.value)} required minLength={2} placeholder="至少 2 个字符" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>密码</Label>
-                        <Input type="password" value={newAdminPwd} onChange={(e) => setNewAdminPwd(e.target.value)} required minLength={6} placeholder="至少 6 位" />
-                      </div>
+                  <DialogHeader>
+                    <DialogTitle>添加管理员</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>用户名</Label>
+                      <Input value={newAdminUser} onChange={(e) => setNewAdminUser(e.target.value)} required />
                     </div>
-                    <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>取消</Button>
-                      <Button type="submit" isLoading={createAdmin.isPending}>创建</Button>
-                    </DialogFooter>
-                  </form>
+                    <div className="space-y-2">
+                      <Label>密码</Label>
+                      <Input type="password" value={newAdminPwd} onChange={(e) => setNewAdminPwd(e.target.value)} required minLength={6} />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setAddDialogOpen(false)}>取消</Button>
+                    <Button onClick={() => createAdmin.mutate()} disabled={createAdmin.isPending}>创建</Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             </CardContent>
