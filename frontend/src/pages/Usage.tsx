@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line,
 } from 'recharts'
+
+const TOOLTIP_STYLE = { backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }
 
 function formatTps(tps: number | null | undefined): string {
   if (tps == null) return '—'
@@ -44,7 +46,7 @@ export default function Usage() {
     refetchInterval,
   })
 
-  const totals = (aggData || []).reduce(
+  const totals = useMemo(() => (aggData || []).reduce(
     (acc: any, a: any) => ({
       requests: (acc.requests || 0) + a.requestCount,
       prompt: (acc.prompt || 0) + a.promptTokens,
@@ -52,18 +54,18 @@ export default function Usage() {
       total: (acc.total || 0) + a.totalTokens,
     }),
     {},
-  )
+  ), [aggData])
 
-  const chartData = (aggData || []).map((a: any) => ({
+  const chartData = useMemo(() => (aggData || []).map((a: any) => ({
     label: new Date(a.periodStart).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
     requests: a.requestCount,
     prompt: a.promptTokens,
     completion: a.completionTokens,
-  }))
+  })), [aggData])
 
-  const barData = (byModelData || [])
+  const barData = useMemo(() => (byModelData || [])
     .map((m: any) => ({ name: m.model, tokens: m.totalTokens, requests: m.requestCount }))
-    .sort((a: any, b: any) => b.tokens - a.tokens)
+    .sort((a: any, b: any) => b.tokens - a.tokens), [byModelData])
 
   function exportCSV() {
     const rows = (usageRecords || []).map((r: any) => {
@@ -152,8 +154,8 @@ export default function Usage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
                   <XAxis dataKey="label" fontSize={12} stroke="currentColor" opacity={0.5} />
                   <YAxis fontSize={12} stroke="currentColor" opacity={0.5} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }} />
-                  <Line type="monotone" dataKey="requests" stroke="#4f46e5" strokeWidth={2} dot={false} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  <Line type="monotone" dataKey="requests" stroke="#4f46e5" strokeWidth={2} dot={false} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -171,8 +173,8 @@ export default function Usage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
                   <XAxis type="number" fontSize={12} stroke="currentColor" opacity={0.5} />
                   <YAxis type="category" dataKey="name" width={100} fontSize={11} stroke="currentColor" opacity={0.5} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }} />
-                  <Bar dataKey="tokens" fill="#4f46e5" radius={[0, 4, 4, 0]} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  <Bar dataKey="tokens" fill="#4f46e5" radius={[0, 4, 4, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             )}

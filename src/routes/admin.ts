@@ -305,6 +305,7 @@ router.get('/usage/aggregate', async (req, res) => {
   const aggregates = await prisma.usageAggregate.findMany({
     where,
     orderBy: { periodStart: 'asc' },
+    take: 5000,
   });
 
   res.json(aggregates);
@@ -317,7 +318,7 @@ router.get('/usage/by-model', async (req, res) => {
   if (from) where.createdAt = { ...where.createdAt, gte: new Date(String(from)) };
   if (to) where.createdAt = { ...where.createdAt, lte: new Date(String(to)) };
 
-  const records = await prisma.usageRecord.findMany({ where });
+  const records = await prisma.usageRecord.findMany({ where, take: 100_000 });
 
   // Join with RequestLog to get durationMs and ttffbMs for TPS calculation
   // Group results by model

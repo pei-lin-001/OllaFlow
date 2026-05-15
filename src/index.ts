@@ -8,20 +8,29 @@ import adminRouter from './routes/admin.js';
 import bcrypt from 'bcryptjs';
 
 const app = express();
+const jsonParser = express.json({ limit: '10mb' });
+const MAX_BLOB_SIZE = 50 * 1024 * 1024;
 
-// JSON parsing for most routes; blob uploads need raw body handling
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/blobs/')) {
-    // Binary blob upload - skip JSON parsing, collect raw body
     const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    let total = 0;
+    req.on('data', (chunk: Buffer) => {
+      total += chunk.length;
+      if (total > MAX_BLOB_SIZE) {
+        res.status(413).json({ error: 'Payload too large.' });
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => {
       (req as any).rawBody = Buffer.concat(chunks);
       next();
     });
     req.on('error', (err) => next(err));
   } else {
-    express.json({ limit: '10mb' })(req, res, next);
+    jsonParser(req, res, next);
   }
 });
 

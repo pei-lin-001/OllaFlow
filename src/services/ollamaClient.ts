@@ -6,7 +6,28 @@ import type { Account } from '@prisma/client';
 
 const defaultAgent = new Agent({
   connect: { rejectUnauthorized: true },
+  keepAliveTimeout: 30_000,
+  keepAliveMaxTimeout: 600_000,
+  connections: 50,
 });
+
+const proxyAgentCache = new Map<string, ProxyAgent>();
+
+function getProxyAgent(account: Account): Agent | ProxyAgent {
+  if (!account.proxyUrl) return defaultAgent;
+  const proxyAuth = getProxyAuth(account);
+  const key = account.proxyUrl + '|' + (proxyAuth ? `${proxyAuth.username}:${proxyAuth.password}` : '');
+  let agent = proxyAgentCache.get(key);
+  if (!agent) {
+    const opts: ConstructorParameters<typeof ProxyAgent>[0] = { uri: account.proxyUrl };
+    if (proxyAuth) {
+      opts.token = `Basic ${Buffer.from(`${proxyAuth.username}:${proxyAuth.password}`).toString('base64')}`;
+    }
+    agent = new ProxyAgent(opts);
+    proxyAgentCache.set(key, agent);
+  }
+  return agent;
+}
 
 export interface ProxyResponse {
   statusCode: number;
@@ -22,7 +43,6 @@ export async function forwardToOllama(
   body?: string | Buffer
 ): Promise<ProxyResponse> {
   const apiKey = getDecryptedApiKey(account);
-  const proxyAuth = getProxyAuth(account);
 
   const upstreamHeaders: Record<string, string> = {
     authorization: `Bearer ${apiKey}`,
@@ -36,7 +56,6 @@ export async function forwardToOllama(
     }
   }
 
-  // Forward relevant client headers
   const forwardHeaders = ['accept', 'accept-encoding', 'accept-language', 'user-agent'];
   for (const h of forwardHeaders) {
     if (headers[h]) {
@@ -45,25 +64,15 @@ export async function forwardToOllama(
   }
 
   const url = `${config.OLLAMA_CLOUD_HOST}${path}`;
-
-  let dispatcher: Agent | ProxyAgent = defaultAgent;
-  if (account.proxyUrl) {
-    const opts: ConstructorParameters<typeof ProxyAgent>[0] = {
-      uri: account.proxyUrl,
-    };
-    if (proxyAuth) {
-      opts.token = `Basic ${Buffer.from(`${proxyAuth.username}:${proxyAuth.password}`).toString('base64')}`;
-    }
-    dispatcher = new ProxyAgent(opts);
-  }
+  const dispatcher = getProxyAgent(account);
 
   const response = await undiciRequest(url, {
     method: method as any,
     headers: upstreamHeaders,
     body: body || undefined,
     dispatcher,
-    headersTimeout: 300_000,
-    bodyTimeout: 0,
+    headersTimeout: 60_000,
+    bodyTimeout: 600_000,
   });
 
   return {

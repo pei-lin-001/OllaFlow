@@ -48,13 +48,8 @@ export async function proxyHandler(req: Request, res: Response) {
   }
 
   let modelName: string | null = null;
-  if (bodyStr) {
-    try {
-      const parsed = JSON.parse(bodyStr);
-      modelName = parsed.model || null;
-    } catch {
-      // ignore
-    }
+  if (method !== 'GET' && method !== 'HEAD' && req.body && typeof req.body === 'object') {
+    modelName = (req.body as any)?.model || null;
   }
 
   const shouldRecordUsage = !shouldSkipUsage(path);
@@ -78,8 +73,8 @@ export async function proxyHandler(req: Request, res: Response) {
     ttffbMs = Date.now() - startTime;
   } catch (err: any) {
     if (requestTrackId) unregisterRequest(requestTrackId);
-    await markAccountFailure(account.id);
-    await logRequest({
+    markAccountFailure(account.id).catch(() => {});
+    logRequest({
       accountId: account.id,
       proxyUserId: proxyUser?.id,
       model: modelName,
@@ -142,8 +137,8 @@ export async function proxyHandler(req: Request, res: Response) {
     });
     upstreamResponse.body.on('error', async (err: Error) => {
       if (requestTrackId) unregisterRequest(requestTrackId);
-      await markAccountFailure(account.id);
-      await logRequest({
+      markAccountFailure(account.id).catch(() => {});
+      logRequest({
         accountId: account.id,
         proxyUserId: proxyUser?.id,
         model: modelName,
@@ -166,7 +161,7 @@ export async function proxyHandler(req: Request, res: Response) {
         onUsage: async (usage, streamModel) => {
           if (shouldRecordUsage) {
             const effectiveModel = modelName || streamModel || 'unknown';
-            await recordOpenAIUsage({
+            recordOpenAIUsage({
               accountId: account.id,
               proxyUserId: proxyUser?.id,
               model: effectiveModel,
@@ -175,11 +170,11 @@ export async function proxyHandler(req: Request, res: Response) {
               usage,
               streamed: true,
               durationMs: Date.now() - startTime,
-            });
+            }).catch(() => {});
           }
           if (requestTrackId) unregisterRequest(requestTrackId);
-          await markAccountSuccess(account.id);
-          await logRequest({
+          markAccountSuccess(account.id).catch(() => {});
+          logRequest({
             accountId: account.id,
             proxyUserId: proxyUser?.id,
             model: modelName || streamModel || null,
@@ -206,7 +201,7 @@ export async function proxyHandler(req: Request, res: Response) {
         onUsage: async (usage) => {
           if (shouldRecordUsage) {
             const effectiveModel = modelName || usage.model || 'unknown';
-            await recordUsage({
+            recordUsage({
               accountId: account.id,
               proxyUserId: proxyUser?.id,
               model: effectiveModel,
@@ -215,11 +210,11 @@ export async function proxyHandler(req: Request, res: Response) {
               usage,
               streamed: true,
               durationMs: Date.now() - startTime,
-            });
+            }).catch(() => {});
           }
           if (requestTrackId) unregisterRequest(requestTrackId);
-          await markAccountSuccess(account.id);
-          await logRequest({
+          markAccountSuccess(account.id).catch(() => {});
+          logRequest({
             accountId: account.id,
             proxyUserId: proxyUser?.id,
             model: modelName || usage.model || null,
@@ -265,7 +260,7 @@ export async function proxyHandler(req: Request, res: Response) {
             // ignore
           }
 
-          await recordOpenAIUsage({
+          recordOpenAIUsage({
             accountId: account.id,
             proxyUserId: proxyUser?.id,
             model: modelName || 'unknown',
@@ -293,7 +288,7 @@ export async function proxyHandler(req: Request, res: Response) {
             // ignore
           }
 
-          await recordUsage({
+          recordUsage({
             accountId: account.id,
             proxyUserId: proxyUser?.id,
             model: modelName || usage.model || 'unknown',
@@ -307,8 +302,8 @@ export async function proxyHandler(req: Request, res: Response) {
       }
 
       if (requestTrackId) unregisterRequest(requestTrackId);
-      await markAccountSuccess(account.id);
-      await logRequest({
+      markAccountSuccess(account.id).catch(() => {});
+      logRequest({
         accountId: account.id,
         proxyUserId: proxyUser?.id,
         model: modelName,
@@ -338,7 +333,7 @@ async function logRequest(data: {
   requestBody?: string;
   responseBody?: string;
 }) {
-  await prisma.requestLog.create({
+  prisma.requestLog.create({
     data: {
       accountId: data.accountId ?? null,
       proxyUserId: data.proxyUserId ?? null,
@@ -352,5 +347,5 @@ async function logRequest(data: {
       responseBody: data.responseBody ?? null,
       error: data.error ?? null,
     },
-  });
+  }).catch((err) => console.error('Failed to log request:', err));
 }

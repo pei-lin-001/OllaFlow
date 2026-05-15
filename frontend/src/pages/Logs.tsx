@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { FileText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ export default function Logs() {
   const { data, isLoading } = useQuery({
     queryKey: ['logs', page, pageSize, statusCode, method],
     queryFn: () => api.getLogs({ page: String(page), pageSize: String(pageSize), ...(statusCode ? { statusCode } : {}), ...(method ? { method } : {}) }),
+    placeholderData: keepPreviousData,
   })
 
   const logs = data?.logs || []

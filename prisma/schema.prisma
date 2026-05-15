@@ -39,6 +39,8 @@ model Account {
   createdAt    DateTime  @default(now())
   usageRecords UsageRecord[]
   requestLogs  RequestLog[]
+
+  @@index([isActive, disabledAt])
 }
 
 model UsageRecord {

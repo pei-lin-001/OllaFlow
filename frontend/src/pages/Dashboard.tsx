@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Activity, CreditCard, Users, Server, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 
 const COLORS = ['#4f46e5', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444']
+const TOOLTIP_STYLE = { backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }
 
 function StatCard({ title, value, icon: Icon, trend }: { title: string; value: string; icon: any; trend?: number }) {
   return (
@@ -54,13 +55,13 @@ export default function Dashboard() {
     refetchInterval,
   })
 
-  const chartData = (aggData || []).slice(-7).map((a: any) => ({
+  const chartData = useMemo(() => (aggData || []).slice(-7).map((a: any) => ({
     date: new Date(a.periodStart).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
     prompt: a.promptTokens,
     completion: a.completionTokens,
-  }))
+  })), [aggData])
 
-  const pieData = (byModelData || [])
+  const pieData = useMemo(() => (byModelData || [])
     .map((m: any) => ({
       name: m.model,
       requests: m.requestCount,
@@ -68,7 +69,7 @@ export default function Dashboard() {
       value: pieMode === 'tokens' ? m.totalTokens : m.requestCount,
     }))
     .sort((a: any, b: any) => b.value - a.value)
-    .slice(0, 6)
+    .slice(0, 6), [byModelData, pieMode])
 
   if (isLoading) {
     return (
@@ -116,11 +117,9 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
                 <XAxis dataKey="date" fontSize={12} stroke="currentColor" opacity={0.5} />
                 <YAxis fontSize={12} stroke="currentColor" opacity={0.5} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }}
-                />
-                <Area type="monotone" dataKey="prompt" stackId="1" stroke="#4f46e5" fill="url(#colorPrompt)" name="输入" />
-                <Area type="monotone" dataKey="completion" stackId="1" stroke="#06b6d4" fill="url(#colorComp)" name="输出" />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Area type="monotone" dataKey="prompt" stackId="1" stroke="#4f46e5" fill="url(#colorPrompt)" name="输入" isAnimationActive={false} />
+                <Area type="monotone" dataKey="completion" stackId="1" stroke="#06b6d4" fill="url(#colorComp)" name="输出" isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -149,13 +148,13 @@ export default function Dashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value" isAnimationActive={false}>
                   {pieData.map((_: any, i: number) => (
                     <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                  contentStyle={TOOLTIP_STYLE}
                   formatter={(value: number, name: string) => [pieMode === 'tokens' ? formatTokens(value) : value.toLocaleString(), name]}
                 />
               </PieChart>
