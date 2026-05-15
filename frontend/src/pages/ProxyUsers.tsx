@@ -29,7 +29,7 @@ export default function ProxyUsers() {
   const [form, setForm] = useState({ name: '', apiKey: '', isActive: true, rateLimit: '' })
   const [copied, setCopied] = useState<number | null>(null)
   const { enabled, interval } = useAutoRefreshStore()
-  const refetchInterval = enabled ? interval : false
+  const refetchInterval = enabled ? (interval || 10000) : false
 
   const { data, isLoading } = useQuery({ queryKey: ['proxy-users'], queryFn: api.getProxyUsers, refetchInterval })
 

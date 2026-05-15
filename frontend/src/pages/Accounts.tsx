@@ -63,7 +63,7 @@ export default function Accounts() {
   const [testing, setTesting] = useState<number | null>(null)
   const [reactivating, setReactivating] = useState<number | null>(null)
   const { enabled, interval } = useAutoRefreshStore()
-  const refetchInterval = enabled ? interval : false
+  const refetchInterval = enabled ? (interval || 10000) : false
 
   const { data, isLoading } = useQuery({ queryKey: ['accounts'], queryFn: api.getAccounts, refetchInterval })
   const { data: cbConfig } = useQuery({ queryKey: ['circuitBreakerConfig'], queryFn: api.getCircuitBreakerConfig, refetchInterval })

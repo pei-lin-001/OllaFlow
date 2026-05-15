@@ -24,7 +24,7 @@ export default function Usage() {
   const [accountId] = useState('')
   const [model] = useState('')
   const { enabled, interval } = useAutoRefreshStore()
-  const refetchInterval = enabled ? interval : false
+  const refetchInterval = enabled ? (interval || 10000) : false
 
   const { data: aggData, isLoading: aggLoading } = useQuery({
     queryKey: ['usage-aggregate', period, accountId, model],

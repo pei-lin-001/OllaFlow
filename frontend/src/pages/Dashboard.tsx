@@ -38,7 +38,7 @@ type PieMode = 'requests' | 'tokens'
 export default function Dashboard() {
   const [pieMode, setPieMode] = useState<PieMode>('tokens')
   const { enabled, interval } = useAutoRefreshStore()
-  const refetchInterval = enabled ? interval : false
+  const refetchInterval = enabled ? (interval || 10000) : false
 
   const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: api.getDashboard, refetchInterval })
 

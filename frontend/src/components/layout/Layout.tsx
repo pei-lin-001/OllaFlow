@@ -64,7 +64,7 @@ export default function Layout() {
   const { data: activeRequests } = useQuery({
     queryKey: ['active-requests'],
     queryFn: api.getActiveRequests,
-    refetchInterval: enabled ? Math.max(interval, 3000) : false,
+    refetchInterval: enabled ? Math.max(interval || 10000, 3000) : false,
   })
 
   const intervalOptions: { label: string; value: number }[] = [
