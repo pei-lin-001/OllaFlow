@@ -7,10 +7,10 @@ import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api/client'
 import { useAutoRefreshStore } from '@/store/autoRefresh'
-import { formatTokens } from '@/lib/utils'
+import { formatTokens, formatYAxisKMB } from '@/lib/utils'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line,
+  AreaChart, Area,
 } from 'recharts'
 
 const TOOLTIP_STYLE = { backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }
@@ -56,8 +56,18 @@ export default function Usage() {
     {},
   ), [aggData])
 
+  const formatXAxis = useMemo(() => {
+    return (value: string) => {
+      const d = new Date(value)
+      if (period === 'hour') {
+        return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+      }
+      return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+    }
+  }, [period])
+
   const chartData = useMemo(() => (aggData || []).map((a: any) => ({
-    label: new Date(a.periodStart).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
+    label: a.periodStart,
     requests: a.requestCount,
     prompt: a.promptTokens,
     completion: a.completionTokens,
@@ -150,13 +160,24 @@ export default function Usage() {
           <CardContent>
             {aggLoading ? <Skeleton className="h-60" /> : (
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={chartData}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorReq" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
-                  <XAxis dataKey="label" fontSize={12} stroke="currentColor" opacity={0.5} />
-                  <YAxis fontSize={12} stroke="currentColor" opacity={0.5} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Line type="monotone" dataKey="requests" stroke="#4f46e5" strokeWidth={2} dot={false} isAnimationActive={false} />
-                </LineChart>
+                  <XAxis dataKey="label" fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatXAxis} interval={period === 'hour' ? 2 : 0} />
+                  <YAxis fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatYAxisKMB} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(v: string) => {
+                    const d = new Date(v)
+                    return period === 'hour'
+                      ? d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : d.toLocaleDateString('zh-CN')
+                  }} />
+                  <Area type="monotone" dataKey="requests" stroke="#4f46e5" fill="url(#colorReq)" strokeWidth={2} isAnimationActive={false} />
+                </AreaChart>
               </ResponsiveContainer>
             )}
           </CardContent>
@@ -171,9 +192,9 @@ export default function Usage() {
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={barData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
-                  <XAxis type="number" fontSize={12} stroke="currentColor" opacity={0.5} />
+                  <XAxis type="number" fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatYAxisKMB} />
                   <YAxis type="category" dataKey="name" width={100} fontSize={11} stroke="currentColor" opacity={0.5} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatTokens(v), '']} />
                   <Bar dataKey="tokens" fill="#4f46e5" radius={[0, 4, 4, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>

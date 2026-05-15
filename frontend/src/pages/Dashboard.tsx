@@ -14,6 +14,12 @@ import {
 const COLORS = ['#4f46e5', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444']
 const TOOLTIP_STYLE = { backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }
 
+function formatKMB(v: number): string {
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M'
+  if (v >= 1000) return (v / 1000).toFixed(1) + 'K'
+  return String(v)
+}
+
 function StatCard({ title, value, icon: Icon, trend }: { title: string; value: string; icon: any; trend?: number }) {
   return (
     <Card>
@@ -44,8 +50,8 @@ export default function Dashboard() {
   const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: api.getDashboard, refetchInterval })
 
   const { data: aggData } = useQuery({
-    queryKey: ['usage-aggregate', 'day'],
-    queryFn: () => api.getUsageAggregate({ period: 'day' }),
+    queryKey: ['usage-aggregate', 'hour'],
+    queryFn: () => api.getUsageAggregate({ period: 'hour' }),
     refetchInterval,
   })
 
@@ -55,8 +61,8 @@ export default function Dashboard() {
     refetchInterval,
   })
 
-  const chartData = useMemo(() => (aggData || []).slice(-7).map((a: any) => ({
-    date: new Date(a.periodStart).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
+  const chartData = useMemo(() => (aggData || []).slice(-24).map((a: any) => ({
+    label: new Date(a.periodStart).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
     prompt: a.promptTokens,
     completion: a.completionTokens,
   })), [aggData])
@@ -99,7 +105,7 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Token 用量（7天）</CardTitle>
+            <CardTitle>Token 用量（24小时）</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -115,9 +121,9 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
-                <XAxis dataKey="date" fontSize={12} stroke="currentColor" opacity={0.5} />
-                <YAxis fontSize={12} stroke="currentColor" opacity={0.5} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <XAxis dataKey="label" fontSize={11} stroke="currentColor" opacity={0.5} interval={2} />
+                <YAxis fontSize={11} stroke="currentColor" opacity={0.5} tickFormatter={formatKMB} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatTokens(v), '']} />
                 <Area type="monotone" dataKey="prompt" stackId="1" stroke="#4f46e5" fill="url(#colorPrompt)" name="输入" isAnimationActive={false} />
                 <Area type="monotone" dataKey="completion" stackId="1" stroke="#06b6d4" fill="url(#colorComp)" name="输出" isAnimationActive={false} />
               </AreaChart>
